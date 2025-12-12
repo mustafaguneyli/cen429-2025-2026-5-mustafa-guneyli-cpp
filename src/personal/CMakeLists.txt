@@ -4,6 +4,14 @@ set(LIBNAME personal)
 
 message(STATUS "[${ROOT}/${LIBNAME}] Module Processing...")
 
+# Find OpenSSL for production-grade cryptography
+find_package(OpenSSL REQUIRED)
+if(OpenSSL_FOUND)
+    message(STATUS "[${ROOT}/${LIBNAME}] OpenSSL found: ${OPENSSL_VERSION}")
+else()
+    message(FATAL_ERROR "[${ROOT}/${LIBNAME}] OpenSSL not found. Please install OpenSSL.")
+endif()
+
 # Collect files without having to explicitly list each header and source file
 file(GLOB LIB_HEADERS
   "${CMAKE_CURRENT_SOURCE_DIR}/header/*.h"
@@ -22,7 +30,8 @@ add_library(${LIBNAME} STATIC ${LIB_HEADERS} ${LIB_SOURCES}) # for dynamic libra
 
 target_include_directories(${LIBNAME} PUBLIC
 						   ${CMAKE_CURRENT_SOURCE_DIR}/../utility/header
-						   ${CMAKE_CURRENT_SOURCE_DIR}/header)
+						   ${CMAKE_CURRENT_SOURCE_DIR}/header
+						   ${OPENSSL_INCLUDE_DIR})
 
 # Windows MSVC runtime library settings
 if(MSVC)
@@ -33,11 +42,13 @@ endif()
 
 # Add any dependencies or compile options specific to crypto
 if(SQLite3_FOUND)
-    target_link_libraries(${LIBNAME} PRIVATE utility SQLite::SQLite3)
+    target_link_libraries(${LIBNAME} PRIVATE utility SQLite::SQLite3 OpenSSL::SSL OpenSSL::Crypto)
     target_compile_definitions(${LIBNAME} PRIVATE USE_SYSTEM_SQLITE3)
 elseif(USE_SQLITE3_AMALGAMATION)
-    target_link_libraries(${LIBNAME} PRIVATE utility sqlite3)
+    target_link_libraries(${LIBNAME} PRIVATE utility sqlite3 OpenSSL::SSL OpenSSL::Crypto)
     target_include_directories(${LIBNAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/sqlite3)
+else()
+    target_link_libraries(${LIBNAME} PRIVATE utility OpenSSL::SSL OpenSSL::Crypto)
 endif()
 
 # creates preprocessor definition used for library exports

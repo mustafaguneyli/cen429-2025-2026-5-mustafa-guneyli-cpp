@@ -1,0 +1,15 @@
+﻿MSBuild version 17.14.23+b0019275e for .NET Framework
+
+  gtest.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\lib\Debug\gtest.lib
+  gtest_main.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\lib\Debug\gtest_main.lib
+  sqlite3.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\sqlite3\Debug\sqlite3.lib
+  utility.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\utility\Debug\utility.lib
+  personal.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\personal\Debug\personal.lib
+  Building Custom Rule C:/Users/musta/OneDrive/Desktop/cen429-2025-2026-27-mustafa-guneyli-cpp/src/tests/personal/CMakeLists.txt
+  crypto_system_test.cpp
+  personal_test.cpp
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\filesystem(12): warning STL4038: The contents of <filesystem> are available only with C++17 or later. [C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\tests\personal\personal_tests.vcxproj]
+  Generating Code...
+  personal_tests.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\build\Debug\personal_tests.exe
+  'pwsh.exe' is not recognized as an internal or external command,
+  operable program or batch file.
