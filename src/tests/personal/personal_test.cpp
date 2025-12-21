@@ -23,6 +23,7 @@
 #include "../../personal/header/data_security.hpp"
 #include "../../personal/header/rasp_protection.hpp"
 #include "../../personal/header/code_hardening.hpp"
+#include "../../personal/header/asset_protection.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX  // Windows.h'den önce tanımlanmalı
@@ -5522,6 +5523,1137 @@ TEST_F(PersonalAppTest, SecureCommunicationIntegrationPasswordBasedEncryption) {
     std::string decrypted = keyMgr2.decryptToString(encrypted);
     
     EXPECT_EQ(sensitiveData, decrypted);
+}
+
+// ============================================================================
+// VARLIK YÖNETİMİ (Asset Protection) Testleri
+// ============================================================================
+
+using namespace Kerem::AssetProtection;
+
+// ============================================================================
+// StaticAsset Testleri
+// ============================================================================
+
+/**
+ * @brief StaticAsset default constructor testi
+ */
+TEST_F(PersonalAppTest, StaticAssetDefaultConstructor) {
+    StaticAsset asset;
+    EXPECT_FALSE(asset.hasData());
+    EXPECT_TRUE(asset.getId().empty());
+    EXPECT_EQ(asset.getSize(), 0u);
+}
+
+/**
+ * @brief StaticAsset constructor with id and type testi
+ */
+TEST_F(PersonalAppTest, StaticAssetConstructorWithIdType) {
+    StaticAsset asset("test-asset-1", AssetType::KEY);
+    EXPECT_EQ(asset.getId(), "test-asset-1");
+    EXPECT_EQ(asset.getType(), AssetType::KEY);
+}
+
+/**
+ * @brief StaticAsset embed string testi
+ */
+TEST_F(PersonalAppTest, StaticAssetEmbedString) {
+    std::string data = "This is secret data!";
+    std::string key = "my-secret-key-12345";
+    
+    StaticAsset asset = StaticAsset::embed(data, key);
+    
+    EXPECT_TRUE(asset.hasData());
+    EXPECT_GT(asset.getSize(), 0u);
+    EXPECT_FALSE(asset.getId().empty());
+}
+
+/**
+ * @brief StaticAsset extract string testi
+ */
+TEST_F(PersonalAppTest, StaticAssetExtractString) {
+    std::string originalData = "Top secret information";
+    std::string key = "encryption-key-1234";
+    
+    StaticAsset asset = StaticAsset::embed(originalData, key);
+    std::string extracted = asset.extract(key);
+    
+    EXPECT_EQ(originalData, extracted);
+}
+
+/**
+ * @brief StaticAsset embedBinary testi
+ */
+TEST_F(PersonalAppTest, StaticAssetEmbedBinary) {
+    std::vector<uint8_t> binaryData = {0x01, 0x02, 0x03, 0x04, 0x05, 0xFF, 0xFE};
+    std::string key = "binary-encryption-key";
+    
+    StaticAsset asset = StaticAsset::embedBinary(binaryData, key);
+    
+    EXPECT_TRUE(asset.hasData());
+    EXPECT_GT(asset.getSize(), 0u);
+}
+
+/**
+ * @brief StaticAsset extractBinary testi
+ */
+TEST_F(PersonalAppTest, StaticAssetExtractBinary) {
+    std::vector<uint8_t> originalData = {0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01};
+    std::string key = "binary-key-12345678";
+    
+    StaticAsset asset = StaticAsset::embedBinary(originalData, key);
+    std::vector<uint8_t> extracted = asset.extractBinary(key);
+    
+    EXPECT_EQ(originalData, extracted);
+}
+
+/**
+ * @brief StaticAsset integrity verification testi
+ */
+TEST_F(PersonalAppTest, StaticAssetIntegrityVerification) {
+    std::string data = "Data with integrity check";
+    std::string key = "integrity-test-key-1";
+    
+    StaticAsset asset = StaticAsset::embed(data, key);
+    
+    EXPECT_TRUE(asset.verifyIntegrity());
+}
+
+/**
+ * @brief StaticAsset invalid key testi
+ */
+TEST_F(PersonalAppTest, StaticAssetInvalidKeyTooShort) {
+    std::string data = "Test data";
+    std::string shortKey = "short";  // Less than 16 chars
+    
+    EXPECT_THROW({
+        StaticAsset::embed(data, shortKey);
+    }, StaticAssetException);
+}
+
+/**
+ * @brief StaticAsset wrong key extraction testi
+ */
+TEST_F(PersonalAppTest, StaticAssetWrongKeyExtraction) {
+    std::string data = "Secret message";
+    std::string correctKey = "correct-key-123456";
+    std::string wrongKey = "wrong-key-12345678";
+    
+    StaticAsset asset = StaticAsset::embed(data, correctKey);
+    std::string extracted = asset.extract(wrongKey);
+    
+    // Should not match original (wrong key)
+    EXPECT_NE(data, extracted);
+}
+
+/**
+ * @brief StaticAsset empty data testi
+ */
+TEST_F(PersonalAppTest, StaticAssetEmptyExtract) {
+    StaticAsset asset;
+    std::string key = "test-key-12345678";
+    
+    EXPECT_THROW({
+        asset.extract(key);
+    }, StaticAssetException);
+}
+
+/**
+ * @brief StaticAsset move semantics testi
+ */
+TEST_F(PersonalAppTest, StaticAssetMoveSemantics) {
+    std::string data = "Move test data";
+    std::string key = "move-test-key-12345";
+    
+    StaticAsset asset1 = StaticAsset::embed(data, key);
+    std::string id1 = asset1.getId();
+    
+    StaticAsset asset2 = std::move(asset1);
+    
+    EXPECT_EQ(asset2.getId(), id1);
+    EXPECT_TRUE(asset2.hasData());
+}
+
+/**
+ * @brief StaticAsset move assignment testi
+ */
+TEST_F(PersonalAppTest, StaticAssetMoveAssignment) {
+    std::string data = "Assignment test";
+    std::string key = "assignment-key-1234";
+    
+    StaticAsset asset1 = StaticAsset::embed(data, key);
+    StaticAsset asset2;
+    
+    asset2 = std::move(asset1);
+    
+    EXPECT_TRUE(asset2.hasData());
+    std::string extracted = asset2.extract(key);
+    EXPECT_EQ(data, extracted);
+}
+
+/**
+ * @brief StaticAsset large data testi
+ */
+TEST_F(PersonalAppTest, StaticAssetLargeData) {
+    // 10KB data
+    std::string largeData(10 * 1024, 'X');
+    std::string key = "large-data-key-12345";
+    
+    StaticAsset asset = StaticAsset::embed(largeData, key);
+    std::string extracted = asset.extract(key);
+    
+    EXPECT_EQ(largeData, extracted);
+}
+
+/**
+ * @brief StaticAsset types testi
+ */
+TEST_F(PersonalAppTest, StaticAssetTypes) {
+    StaticAsset keyAsset("key-1", AssetType::KEY);
+    StaticAsset configAsset("config-1", AssetType::CONFIG);
+    StaticAsset textAsset("text-1", AssetType::TEXT);
+    StaticAsset certAsset("cert-1", AssetType::CERTIFICATE);
+    
+    EXPECT_EQ(keyAsset.getType(), AssetType::KEY);
+    EXPECT_EQ(configAsset.getType(), AssetType::CONFIG);
+    EXPECT_EQ(textAsset.getType(), AssetType::TEXT);
+    EXPECT_EQ(certAsset.getType(), AssetType::CERTIFICATE);
+}
+
+// ============================================================================
+// DynamicAsset Testleri
+// ============================================================================
+
+/**
+ * @brief DynamicAsset default constructor testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetDefaultConstructor) {
+    DynamicAsset asset;
+    
+    EXPECT_FALSE(asset.hasData());
+    EXPECT_FALSE(asset.isLocked());
+    EXPECT_EQ(asset.getSize(), 0u);
+    EXPECT_EQ(asset.getAccessCount(), 0u);
+}
+
+/**
+ * @brief DynamicAsset create from vector testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetCreateFromVector) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04, 0x05};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    
+    EXPECT_TRUE(asset.hasData());
+    EXPECT_EQ(asset.getSize(), data.size());
+    EXPECT_FALSE(asset.isLocked());
+}
+
+/**
+ * @brief DynamicAsset create from string testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetCreateFromString) {
+    std::string data = "Dynamic asset test data";
+    
+    DynamicAsset asset = DynamicAsset::createFromString(data);
+    
+    EXPECT_TRUE(asset.hasData());
+    EXPECT_EQ(asset.getSize(), data.size());
+}
+
+/**
+ * @brief DynamicAsset access testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetAccess) {
+    std::vector<uint8_t> originalData = {0xAA, 0xBB, 0xCC, 0xDD};
+    
+    DynamicAsset asset = DynamicAsset::create(originalData);
+    std::vector<uint8_t> accessed = asset.access();
+    
+    EXPECT_EQ(originalData, accessed);
+    EXPECT_EQ(asset.getAccessCount(), 1u);
+}
+
+/**
+ * @brief DynamicAsset accessAsString testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetAccessAsString) {
+    std::string originalData = "String access test";
+    
+    DynamicAsset asset = DynamicAsset::createFromString(originalData);
+    std::string accessed = asset.accessAsString();
+    
+    EXPECT_EQ(originalData, accessed);
+}
+
+/**
+ * @brief DynamicAsset lock testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetLock) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    
+    EXPECT_FALSE(asset.isLocked());
+    
+    bool lockResult = asset.lock();
+    
+    EXPECT_TRUE(lockResult);
+    EXPECT_TRUE(asset.isLocked());
+}
+
+/**
+ * @brief DynamicAsset unlock testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetUnlock) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    asset.lock();
+    
+    EXPECT_TRUE(asset.isLocked());
+    
+    bool unlockResult = asset.unlock();
+    
+    EXPECT_TRUE(unlockResult);
+    EXPECT_FALSE(asset.isLocked());
+}
+
+/**
+ * @brief DynamicAsset access while locked testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetAccessWhileLocked) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    asset.lock();
+    
+    EXPECT_THROW({
+        asset.access();
+    }, DynamicAssetException);
+}
+
+/**
+ * @brief DynamicAsset secure wipe testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetSecureWipe) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04, 0x05};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    EXPECT_TRUE(asset.hasData());
+    
+    asset.secureWipe();
+    
+    EXPECT_FALSE(asset.hasData());
+    EXPECT_EQ(asset.getSize(), 0u);
+}
+
+/**
+ * @brief DynamicAsset empty data exception testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetEmptyDataException) {
+    std::vector<uint8_t> emptyData;
+    
+    EXPECT_THROW({
+        DynamicAsset::create(emptyData);
+    }, DynamicAssetException);
+}
+
+/**
+ * @brief DynamicAsset empty string exception testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetEmptyStringException) {
+    std::string emptyString;
+    
+    EXPECT_THROW({
+        DynamicAsset::createFromString(emptyString);
+    }, DynamicAssetException);
+}
+
+/**
+ * @brief DynamicAsset move semantics testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetMoveSemantics) {
+    std::vector<uint8_t> data = {0xAA, 0xBB, 0xCC};
+    
+    DynamicAsset asset1 = DynamicAsset::create(data);
+    size_t originalSize = asset1.getSize();
+    
+    DynamicAsset asset2 = std::move(asset1);
+    
+    EXPECT_EQ(asset2.getSize(), originalSize);
+    EXPECT_TRUE(asset2.hasData());
+}
+
+/**
+ * @brief DynamicAsset move assignment testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetMoveAssignment) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset1 = DynamicAsset::create(data);
+    DynamicAsset asset2;
+    
+    asset2 = std::move(asset1);
+    
+    EXPECT_TRUE(asset2.hasData());
+    std::vector<uint8_t> accessed = asset2.access();
+    EXPECT_EQ(data, accessed);
+}
+
+/**
+ * @brief DynamicAsset multiple access testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetMultipleAccess) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    
+    asset.access();
+    asset.access();
+    asset.access();
+    
+    EXPECT_EQ(asset.getAccessCount(), 3u);
+}
+
+/**
+ * @brief DynamicAsset lock unlock cycle testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetLockUnlockCycle) {
+    std::vector<uint8_t> data = {0x01, 0x02};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    
+    // Multiple lock/unlock cycles
+    for (int i = 0; i < 3; ++i) {
+        asset.lock();
+        EXPECT_TRUE(asset.isLocked());
+        
+        asset.unlock();
+        EXPECT_FALSE(asset.isLocked());
+        
+        std::vector<uint8_t> accessed = asset.access();
+        EXPECT_EQ(data, accessed);
+    }
+}
+
+// ============================================================================
+// AssetRegistry Testleri
+// ============================================================================
+
+/**
+ * @brief AssetRegistry constructor testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryConstructor) {
+    AssetRegistry registry;
+    
+    EXPECT_EQ(registry.getAssetCount(), 0u);
+}
+
+/**
+ * @brief AssetRegistry register asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryRegisterAsset) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test Asset", AssetType::KEY, Classification::CONFIDENTIAL);
+    
+    bool result = registry.registerAsset(metadata);
+    
+    EXPECT_TRUE(result);
+    EXPECT_EQ(registry.getAssetCount(), 1u);
+}
+
+/**
+ * @brief AssetRegistry duplicate registration testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryDuplicateRegistration) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test Asset", AssetType::KEY, Classification::CONFIDENTIAL);
+    
+    registry.registerAsset(metadata);
+    bool duplicateResult = registry.registerAsset(metadata);
+    
+    EXPECT_FALSE(duplicateResult);
+    EXPECT_EQ(registry.getAssetCount(), 1u);
+}
+
+/**
+ * @brief AssetRegistry get asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetAsset) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test Asset", AssetType::CONFIG, Classification::INTERNAL);
+    metadata.description = "Test description";
+    metadata.owner = "test-owner";
+    
+    registry.registerAsset(metadata);
+    
+    AssetMetadata retrieved = registry.getAsset("asset-1");
+    
+    EXPECT_EQ(retrieved.id, "asset-1");
+    EXPECT_EQ(retrieved.name, "Test Asset");
+    EXPECT_EQ(retrieved.type, AssetType::CONFIG);
+    EXPECT_EQ(retrieved.classification, Classification::INTERNAL);
+}
+
+/**
+ * @brief AssetRegistry get non-existent asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetNonExistent) {
+    AssetRegistry registry;
+    
+    EXPECT_THROW({
+        registry.getAsset("non-existent");
+    }, AssetRegistryException);
+}
+
+/**
+ * @brief AssetRegistry has asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryHasAsset) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test", AssetType::BINARY, Classification::PUBLIC);
+    registry.registerAsset(metadata);
+    
+    EXPECT_TRUE(registry.hasAsset("asset-1"));
+    EXPECT_FALSE(registry.hasAsset("asset-2"));
+}
+
+/**
+ * @brief AssetRegistry update asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryUpdateAsset) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Original Name", AssetType::TEXT, Classification::PUBLIC);
+    registry.registerAsset(metadata);
+    
+    metadata.name = "Updated Name";
+    metadata.classification = Classification::SECRET;
+    
+    bool updateResult = registry.updateAsset("asset-1", metadata);
+    
+    EXPECT_TRUE(updateResult);
+    
+    AssetMetadata retrieved = registry.getAsset("asset-1");
+    EXPECT_EQ(retrieved.name, "Updated Name");
+    EXPECT_EQ(retrieved.classification, Classification::SECRET);
+}
+
+/**
+ * @brief AssetRegistry update non-existent testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryUpdateNonExistent) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test", AssetType::BINARY, Classification::PUBLIC);
+    
+    bool result = registry.updateAsset("non-existent", metadata);
+    
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @brief AssetRegistry remove asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryRemoveAsset) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test", AssetType::KEY, Classification::SECRET);
+    registry.registerAsset(metadata);
+    
+    EXPECT_EQ(registry.getAssetCount(), 1u);
+    
+    bool removeResult = registry.removeAsset("asset-1");
+    
+    EXPECT_TRUE(removeResult);
+    EXPECT_EQ(registry.getAssetCount(), 0u);
+    EXPECT_FALSE(registry.hasAsset("asset-1"));
+}
+
+/**
+ * @brief AssetRegistry remove non-existent testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryRemoveNonExistent) {
+    AssetRegistry registry;
+    
+    bool result = registry.removeAsset("non-existent");
+    
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @brief AssetRegistry log access testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryLogAccess) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("asset-1", "Test", AssetType::KEY, Classification::CONFIDENTIAL);
+    registry.registerAsset(metadata);
+    
+    registry.logAccess("asset-1", "user1", "READ", true);
+    registry.logAccess("asset-1", "user2", "WRITE", true);
+    
+    std::vector<AccessLogEntry> logs = registry.getAccessLog("asset-1");
+    
+    // Registration + 2 access logs
+    EXPECT_GE(logs.size(), 2u);
+}
+
+/**
+ * @brief AssetRegistry get all assets testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetAllAssets) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("asset-1", "Asset 1", AssetType::KEY, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("asset-2", "Asset 2", AssetType::CONFIG, Classification::INTERNAL));
+    registry.registerAsset(AssetMetadata("asset-3", "Asset 3", AssetType::BINARY, Classification::SECRET));
+    
+    std::vector<AssetMetadata> allAssets = registry.getAllAssets();
+    
+    EXPECT_EQ(allAssets.size(), 3u);
+}
+
+/**
+ * @brief AssetRegistry get by classification testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetByClassification) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("pub-1", "Public 1", AssetType::TEXT, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("pub-2", "Public 2", AssetType::TEXT, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("secret-1", "Secret 1", AssetType::KEY, Classification::SECRET));
+    
+    std::vector<AssetMetadata> publicAssets = registry.getAssetsByClassification(Classification::PUBLIC);
+    std::vector<AssetMetadata> secretAssets = registry.getAssetsByClassification(Classification::SECRET);
+    
+    EXPECT_EQ(publicAssets.size(), 2u);
+    EXPECT_EQ(secretAssets.size(), 1u);
+}
+
+/**
+ * @brief AssetRegistry get by type testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetByType) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("key-1", "Key 1", AssetType::KEY, Classification::SECRET));
+    registry.registerAsset(AssetMetadata("key-2", "Key 2", AssetType::KEY, Classification::CONFIDENTIAL));
+    registry.registerAsset(AssetMetadata("config-1", "Config 1", AssetType::CONFIG, Classification::INTERNAL));
+    
+    std::vector<AssetMetadata> keyAssets = registry.getAssetsByType(AssetType::KEY);
+    std::vector<AssetMetadata> configAssets = registry.getAssetsByType(AssetType::CONFIG);
+    
+    EXPECT_EQ(keyAssets.size(), 2u);
+    EXPECT_EQ(configAssets.size(), 1u);
+}
+
+/**
+ * @brief AssetRegistry get all access logs testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetAllAccessLogs) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("asset-1", "Test", AssetType::KEY, Classification::PUBLIC));
+    registry.logAccess("asset-1", "user1", "READ", true);
+    registry.logAccess("asset-1", "user2", "DELETE", false);
+    
+    std::vector<AccessLogEntry> allLogs = registry.getAllAccessLogs();
+    
+    EXPECT_GE(allLogs.size(), 3u);  // 1 register + 2 access
+}
+
+/**
+ * @brief AssetRegistry generate report testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGenerateReport) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("asset-1", "Test Asset", AssetType::KEY, Classification::SECRET));
+    
+    std::string report = registry.generateReport();
+    
+    EXPECT_FALSE(report.empty());
+    EXPECT_TRUE(report.find("VARLIK") != std::string::npos ||
+                report.find("Asset") != std::string::npos);
+    EXPECT_TRUE(report.find("asset-1") != std::string::npos);
+}
+
+/**
+ * @brief AssetRegistry clear testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryClear) {
+    AssetRegistry registry;
+    
+    registry.registerAsset(AssetMetadata("a1", "A1", AssetType::KEY, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("a2", "A2", AssetType::CONFIG, Classification::INTERNAL));
+    
+    EXPECT_EQ(registry.getAssetCount(), 2u);
+    
+    registry.clear();
+    
+    EXPECT_EQ(registry.getAssetCount(), 0u);
+}
+
+/**
+ * @brief AssetRegistry empty id registration testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryEmptyIdRegistration) {
+    AssetRegistry registry;
+    
+    AssetMetadata metadata("", "No ID", AssetType::BINARY, Classification::PUBLIC);
+    
+    bool result = registry.registerAsset(metadata);
+    
+    EXPECT_FALSE(result);
+}
+
+/**
+ * @brief AssetRegistry type to string testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryTypeToString) {
+    EXPECT_EQ(AssetRegistry::assetTypeToString(AssetType::KEY), "KEY");
+    EXPECT_EQ(AssetRegistry::assetTypeToString(AssetType::CONFIG), "CONFIG");
+    EXPECT_EQ(AssetRegistry::assetTypeToString(AssetType::BINARY), "BINARY");
+    EXPECT_EQ(AssetRegistry::assetTypeToString(AssetType::TEXT), "TEXT");
+    EXPECT_EQ(AssetRegistry::assetTypeToString(AssetType::CERTIFICATE), "CERTIFICATE");
+}
+
+/**
+ * @brief AssetRegistry classification to string testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryClassificationToString) {
+    EXPECT_EQ(AssetRegistry::classificationToString(Classification::PUBLIC), "PUBLIC");
+    EXPECT_EQ(AssetRegistry::classificationToString(Classification::INTERNAL), "INTERNAL");
+    EXPECT_EQ(AssetRegistry::classificationToString(Classification::CONFIDENTIAL), "CONFIDENTIAL");
+    EXPECT_EQ(AssetRegistry::classificationToString(Classification::SECRET), "SECRET");
+}
+
+/**
+ * @brief AssetMetadata default constructor testi
+ */
+TEST_F(PersonalAppTest, AssetMetadataDefaultConstructor) {
+    AssetMetadata metadata;
+    
+    EXPECT_TRUE(metadata.id.empty());
+    EXPECT_TRUE(metadata.name.empty());
+    EXPECT_EQ(metadata.type, AssetType::BINARY);
+    EXPECT_EQ(metadata.classification, Classification::INTERNAL);
+    EXPECT_EQ(metadata.accessCount, 0u);
+}
+
+/**
+ * @brief AssetMetadata parameterized constructor testi
+ */
+TEST_F(PersonalAppTest, AssetMetadataParameterizedConstructor) {
+    AssetMetadata metadata("id-1", "Name 1", AssetType::CERTIFICATE, Classification::SECRET);
+    
+    EXPECT_EQ(metadata.id, "id-1");
+    EXPECT_EQ(metadata.name, "Name 1");
+    EXPECT_EQ(metadata.type, AssetType::CERTIFICATE);
+    EXPECT_EQ(metadata.classification, Classification::SECRET);
+}
+
+// ============================================================================
+// Utility Functions Testleri
+// ============================================================================
+
+/**
+ * @brief computeHash testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionComputeHash) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04};
+    
+    std::string hash = computeHash(data);
+    
+    EXPECT_EQ(hash.length(), 64u);  // SHA-256 like output
+    
+    // Same data should produce same hash
+    std::string hash2 = computeHash(data);
+    EXPECT_EQ(hash, hash2);
+}
+
+/**
+ * @brief computeHash empty data testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionComputeHashEmpty) {
+    std::vector<uint8_t> emptyData;
+    
+    std::string hash = computeHash(emptyData);
+    
+    EXPECT_TRUE(hash.empty());
+}
+
+/**
+ * @brief secureCompare equal testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionSecureCompareEqual) {
+    std::vector<uint8_t> a = {0x01, 0x02, 0x03, 0x04};
+    std::vector<uint8_t> b = {0x01, 0x02, 0x03, 0x04};
+    
+    EXPECT_TRUE(secureCompare(a, b));
+}
+
+/**
+ * @brief secureCompare not equal testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionSecureCompareNotEqual) {
+    std::vector<uint8_t> a = {0x01, 0x02, 0x03, 0x04};
+    std::vector<uint8_t> b = {0x01, 0x02, 0x03, 0x05};
+    
+    EXPECT_FALSE(secureCompare(a, b));
+}
+
+/**
+ * @brief secureCompare different size testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionSecureCompareDiffSize) {
+    std::vector<uint8_t> a = {0x01, 0x02, 0x03};
+    std::vector<uint8_t> b = {0x01, 0x02, 0x03, 0x04};
+    
+    EXPECT_FALSE(secureCompare(a, b));
+}
+
+/**
+ * @brief secureZeroMemory testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionSecureZeroMemory) {
+    uint8_t buffer[16] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+    
+    secureZeroMemory(buffer, sizeof(buffer));
+    
+    for (int i = 0; i < 16; ++i) {
+        EXPECT_EQ(buffer[i], 0);
+    }
+}
+
+/**
+ * @brief secureZeroMemory null pointer testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionSecureZeroMemoryNull) {
+    // Should not crash
+    EXPECT_NO_THROW({
+        secureZeroMemory(nullptr, 0);
+        secureZeroMemory(nullptr, 100);
+    });
+}
+
+// ============================================================================
+// Entegrasyon Testleri
+// ============================================================================
+
+/**
+ * @brief Full asset lifecycle testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionFullLifecycle) {
+    // 1. Create registry
+    AssetRegistry registry;
+    
+    // 2. Create static asset
+    std::string secretKey = "super-secret-api-key-12345";
+    std::string encryptionKey = "encryption-key-1234";
+    
+    StaticAsset staticAsset = StaticAsset::embed(secretKey, encryptionKey);
+    
+    // 3. Register asset
+    AssetMetadata metadata(staticAsset.getId(), "API Key", AssetType::KEY, Classification::SECRET);
+    metadata.size = staticAsset.getSize();
+    
+    bool registered = registry.registerAsset(metadata);
+    EXPECT_TRUE(registered);
+    
+    // 4. Log access
+    registry.logAccess(staticAsset.getId(), "app", "READ", true);
+    
+    // 5. Extract and verify
+    std::string extracted = staticAsset.extract(encryptionKey);
+    EXPECT_EQ(secretKey, extracted);
+    
+    // 6. Generate report
+    std::string report = registry.generateReport();
+    EXPECT_FALSE(report.empty());
+}
+
+/**
+ * @brief Static and dynamic asset combination testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionStaticDynamicCombination) {
+    // Create static asset with config
+    std::string config = "{\"api_url\": \"https://api.example.com\"}";
+    std::string key = "config-encrypt-key-1";
+    
+    StaticAsset staticConfig = StaticAsset::embed(config, key);
+    
+    // Extract to dynamic asset for runtime use
+    std::string extractedConfig = staticConfig.extract(key);
+    DynamicAsset dynamicConfig = DynamicAsset::createFromString(extractedConfig);
+    
+    // Access and use
+    std::string usedConfig = dynamicConfig.accessAsString();
+    EXPECT_EQ(config, usedConfig);
+    
+    // Secure cleanup
+    dynamicConfig.secureWipe();
+    EXPECT_FALSE(dynamicConfig.hasData());
+}
+
+/**
+ * @brief Registry with multiple asset types testi
+ */
+TEST_F(PersonalAppTest, AssetProtectionMultipleAssetTypes) {
+    AssetRegistry registry;
+    
+    // Register different types
+    registry.registerAsset(AssetMetadata("key-1", "Encryption Key", AssetType::KEY, Classification::SECRET));
+    registry.registerAsset(AssetMetadata("config-1", "App Config", AssetType::CONFIG, Classification::INTERNAL));
+    registry.registerAsset(AssetMetadata("cert-1", "TLS Certificate", AssetType::CERTIFICATE, Classification::CONFIDENTIAL));
+    registry.registerAsset(AssetMetadata("text-1", "License Text", AssetType::TEXT, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("bin-1", "Binary Data", AssetType::BINARY, Classification::INTERNAL));
+    
+    EXPECT_EQ(registry.getAssetCount(), 5u);
+    
+    // Verify by type
+    EXPECT_EQ(registry.getAssetsByType(AssetType::KEY).size(), 1u);
+    EXPECT_EQ(registry.getAssetsByType(AssetType::CONFIG).size(), 1u);
+    EXPECT_EQ(registry.getAssetsByType(AssetType::CERTIFICATE).size(), 1u);
+    EXPECT_EQ(registry.getAssetsByType(AssetType::TEXT).size(), 1u);
+    EXPECT_EQ(registry.getAssetsByType(AssetType::BINARY).size(), 1u);
+}
+
+// ============================================================================
+// Ek Coverage Testleri (%100 coverage için)
+// ============================================================================
+
+/**
+ * @brief AssetRegistry getInstance singleton testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGetInstance) {
+    AssetRegistry& instance1 = AssetRegistry::getInstance();
+    AssetRegistry& instance2 = AssetRegistry::getInstance();
+    
+    // Aynı instance olmalı
+    EXPECT_EQ(&instance1, &instance2);
+    
+    // Singleton temizle (diğer testleri etkilememesi için)
+    instance1.clear();
+}
+
+/**
+ * @brief StaticAsset embedBinary large data exception testi
+ */
+TEST_F(PersonalAppTest, StaticAssetEmbedBinaryTooLarge) {
+    // MAX_ASSET_SIZE'dan büyük veri (16MB + 1 byte)
+    std::vector<uint8_t> largeData(16 * 1024 * 1024 + 1, 0xAA);
+    std::string key = "test-key-12345678";
+    
+    EXPECT_THROW({
+        StaticAsset::embedBinary(largeData, key);
+    }, StaticAssetException);
+}
+
+/**
+ * @brief DynamicAsset create large data exception testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetCreateTooLarge) {
+    // MAX_ASSET_SIZE'dan büyük veri
+    std::vector<uint8_t> largeData(16 * 1024 * 1024 + 1, 0xBB);
+    
+    EXPECT_THROW({
+        DynamicAsset::create(largeData);
+    }, DynamicAssetException);
+}
+
+/**
+ * @brief DynamicAsset access no data testi (default constructor sonra access)
+ */
+TEST_F(PersonalAppTest, DynamicAssetAccessNoData) {
+    DynamicAsset asset;  // Default constructor, veri yok
+    
+    EXPECT_THROW({
+        asset.access();
+    }, DynamicAssetException);
+}
+
+/**
+ * @brief DynamicAsset secureWipe while locked testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetSecureWipeWhileLocked) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03};
+    
+    DynamicAsset asset = DynamicAsset::create(data);
+    asset.lock();
+    
+    EXPECT_TRUE(asset.isLocked());
+    
+    // secureWipe kilitli iken çalışmalı (unlock yapıp sonra wipe)
+    asset.secureWipe();
+    
+    EXPECT_FALSE(asset.hasData());
+    EXPECT_FALSE(asset.isLocked());
+}
+
+/**
+ * @brief AssetRegistry generateUniqueId testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryGenerateUniqueId) {
+    AssetRegistry registry;
+    
+    // Private fonksiyon olduğu için dolaylı test
+    // registerAsset sonrası log entry'lerde unique ID kullanılıyor
+    AssetMetadata metadata("unique-test", "Test", AssetType::KEY, Classification::PUBLIC);
+    registry.registerAsset(metadata);
+    
+    std::vector<AccessLogEntry> logs = registry.getAllAccessLogs();
+    EXPECT_FALSE(logs.empty());
+    
+    // Log entry assetId'si doğru olmalı
+    EXPECT_EQ(logs[0].assetId, "unique-test");
+}
+
+/**
+ * @brief AssetRegistry log access for non-existent asset testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryLogAccessNonExistent) {
+    AssetRegistry registry;
+    
+    // Kayıtlı olmayan varlık için log (hata fırlatmamalı)
+    EXPECT_NO_THROW({
+        registry.logAccess("non-existent-asset", "user", "READ", false);
+    });
+    
+    std::vector<AccessLogEntry> logs = registry.getAllAccessLogs();
+    EXPECT_EQ(logs.size(), 1u);
+    EXPECT_EQ(logs[0].assetId, "non-existent-asset");
+    EXPECT_FALSE(logs[0].success);
+}
+
+/**
+ * @brief StaticAsset extractBinary short key testi
+ */
+TEST_F(PersonalAppTest, StaticAssetExtractBinaryShortKey) {
+    std::string data = "Test data for extraction";
+    std::string validKey = "valid-key-12345678";
+    std::string shortKey = "short";
+    
+    StaticAsset asset = StaticAsset::embed(data, validKey);
+    
+    EXPECT_THROW({
+        asset.extractBinary(shortKey);
+    }, StaticAssetException);
+}
+
+/**
+ * @brief DynamicAsset obfuscate/deobfuscate null memory testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetObfuscateDeobfuscateEmpty) {
+    DynamicAsset asset;  // Default constructor, memory null
+    
+    // obfuscate ve deobfuscate boş memory ile crash olmamalı
+    // Bu private fonksiyonlar, ama secureWipe ile test edilebilir
+    EXPECT_NO_THROW({
+        asset.secureWipe();  // size_ = 0 olduğunda obfuscate/deobfuscate çağrılmaz
+    });
+}
+
+/**
+ * @brief AssetRegistry empty report testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryEmptyReport) {
+    AssetRegistry registry;
+    
+    std::string report = registry.generateReport();
+    
+    EXPECT_FALSE(report.empty());
+    EXPECT_TRUE(report.find("0") != std::string::npos);  // 0 varlık
+}
+
+/**
+ * @brief StaticAsset multiple move operations testi
+ */
+TEST_F(PersonalAppTest, StaticAssetMultipleMoves) {
+    std::string data = "Multiple move test";
+    std::string key = "move-key-12345678";
+    
+    StaticAsset asset1 = StaticAsset::embed(data, key);
+    StaticAsset asset2 = std::move(asset1);
+    StaticAsset asset3;
+    asset3 = std::move(asset2);
+    
+    EXPECT_TRUE(asset3.hasData());
+    std::string extracted = asset3.extract(key);
+    EXPECT_EQ(data, extracted);
+}
+
+/**
+ * @brief DynamicAsset accessAsString after unlock testi
+ */
+TEST_F(PersonalAppTest, DynamicAssetAccessAsStringAfterUnlock) {
+    std::string data = "Unlock and access test";
+    
+    DynamicAsset asset = DynamicAsset::createFromString(data);
+    asset.lock();
+    asset.unlock();
+    
+    std::string accessed = asset.accessAsString();
+    EXPECT_EQ(data, accessed);
+}
+
+/**
+ * @brief AssetRegistry with all classification types in report testi
+ */
+TEST_F(PersonalAppTest, AssetRegistryReportAllClassifications) {
+    AssetRegistry registry;
+    
+    // Tüm sınıflandırma türlerini ekle
+    registry.registerAsset(AssetMetadata("pub", "Public", AssetType::TEXT, Classification::PUBLIC));
+    registry.registerAsset(AssetMetadata("int", "Internal", AssetType::CONFIG, Classification::INTERNAL));
+    registry.registerAsset(AssetMetadata("conf", "Confidential", AssetType::KEY, Classification::CONFIDENTIAL));
+    registry.registerAsset(AssetMetadata("sec", "Secret", AssetType::CERTIFICATE, Classification::SECRET));
+    
+    std::string report = registry.generateReport();
+    
+    EXPECT_TRUE(report.find("PUBLIC:       1") != std::string::npos);
+    EXPECT_TRUE(report.find("INTERNAL:     1") != std::string::npos);
+    EXPECT_TRUE(report.find("CONFIDENTIAL: 1") != std::string::npos);
+    EXPECT_TRUE(report.find("SECRET:       1") != std::string::npos);
+}
+
+/**
+ * @brief StaticAsset embedBinary with short key (doğrudan çağrı) testi
+ */
+TEST_F(PersonalAppTest, StaticAssetEmbedBinaryShortKey) {
+    std::vector<uint8_t> data = {0x01, 0x02, 0x03, 0x04};
+    std::string shortKey = "short123";  // 8 karakter, 16'dan az
+    
+    EXPECT_THROW({
+        StaticAsset::embedBinary(data, shortKey);
+    }, StaticAssetException);
+}
+
+/**
+ * @brief StaticAsset verifyIntegrity with empty hash testi
+ */
+TEST_F(PersonalAppTest, StaticAssetVerifyIntegrityEmptyHash) {
+    StaticAsset asset("test-id", AssetType::KEY);
+    
+    // Hash boş olduğunda verifyIntegrity false döner
+    EXPECT_FALSE(asset.verifyIntegrity());
+}
+
+/**
+ * @brief StaticAsset verifyIntegrity with empty data testi
+ */
+TEST_F(PersonalAppTest, StaticAssetVerifyIntegrityEmptyData) {
+    StaticAsset asset;
+    
+    // Data ve hash boş olduğunda verifyIntegrity false döner
+    EXPECT_FALSE(asset.verifyIntegrity());
 }
 
 // ============================================================================
