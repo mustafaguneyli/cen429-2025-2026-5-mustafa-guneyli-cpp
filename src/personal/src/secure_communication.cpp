@@ -6,7 +6,7 @@
  * için OpenSSL tabanlı implementasyonları içerir.
  * 
  * @author Kerem
- * @date 2024
+ * @date 2025
  */
 
 #include "../header/secure_communication.hpp"
