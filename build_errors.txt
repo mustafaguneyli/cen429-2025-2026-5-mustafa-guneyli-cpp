@@ -1,6 +1,6 @@
-﻿MSBuild version 17.14.23+b0019275e for .NET Framework
+﻿.NET Framework i├ğin MSBuild s├╝r├╝m 17.14.23+b0019275e
 
-  sqlite3.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\sqlite3\Debug\sqlite3.lib
-  utility.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\utility\Debug\utility.lib
-  CryptoSystem.cpp
-  personal.vcxproj -> C:\Users\musta\OneDrive\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build\src\personal\Debug\personal.lib
+  utility.vcxproj -> C:\Users\AHMET KEREM\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build_win\src\utility\Debug\utility.lib
+  personal.vcxproj -> C:\Users\AHMET KEREM\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build_win\src\personal\Debug\personal.lib
+  personalapp.cpp
+  personalapp.vcxproj -> C:\Users\AHMET KEREM\Desktop\cen429-2025-2026-27-mustafa-guneyli-cpp\build_win\build\Debug\personalapp.exe

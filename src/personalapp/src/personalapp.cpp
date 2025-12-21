@@ -12,6 +12,8 @@
 #include "../../personal/header/data_security.hpp"
 // 🛡️ RASP: Runtime Application Self-Protection modülü
 #include "../../personal/header/rasp_protection.hpp"
+// 🔐 GÜVENLİ İLETİŞİM: SSL/TLS, Sertifika Pinning, Oturum Anahtarı Yönetimi
+#include "../../personal/header/secure_communication.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -96,6 +98,7 @@ namespace {
         std::cout << " 2) Yatirim portfoy yonetimi\n";
         std::cout << " 3) Finansal hedefler\n";
         std::cout << " 4) Borc azaltma stratejileri\n";
+        std::cout << " 5) Guvenli Iletisim Demo\n";
         std::cout << " 0) Cikis\n";
         drawLine();
         std::cout << "Seciminiz: ";
@@ -521,6 +524,178 @@ void runApplication() {
                 std::cout << debts.getBasicPaydownSuggestion() << "\n";
             }
             std::cout << "Devam etmek icin Enter...\n"; std::cin.get();
+            break;
+        }
+        case 5: { // ------- GÜVENLİ İLETİŞİM DEMO -------
+            using namespace Kerem::personal::SecureCommunication;
+            clearScreen();
+            std::cout << u8"\n";
+            drawLine();
+            std::cout << u8"       🔐 Guvenli Iletisim Demo\n";
+            drawLine();
+            std::cout << u8" 1) Oturum Anahtari Olustur\n";
+            std::cout << u8" 2) Mesaj Sifrele\n";
+            std::cout << u8" 3) Mesaj Coz\n";
+            std::cout << u8" 4) Anahtar Rotasyonu\n";
+            std::cout << u8" 5) Paroladan Anahtar Turet (PBKDF2)\n";
+            std::cout << u8" 6) Sertifika Pin Ekle\n";
+            std::cout << u8" 7) TLS Context Bilgisi\n";
+            std::cout << u8" 0) Ana Menuye Don\n";
+            drawLine();
+            
+            int secureChoice;
+            if (!readIntSafe("Seciminiz: ", secureChoice)) break;
+            
+            // Static session key manager (demo için)
+            static SessionKeyManager demoKeyMgr;
+            static CertificatePinning demoPinning;
+            static std::string lastEncryptedHex;
+            static EncryptedData lastEncrypted;
+            
+            switch (secureChoice) {
+            case 1: { // Oturum anahtarı oluştur
+                std::cout << u8"\n🔑 Yeni oturum anahtari olusturuluyor...\n";
+                auto key = demoKeyMgr.generateSessionKey();
+                std::cout << u8"✓ 256-bit AES anahtari olusturuldu!\n";
+                std::cout << u8"Anahtar (hex): " << bytesToHex(key).substr(0, 32) << "...\n";
+                std::cout << u8"Anahtar uzunlugu: " << key.size() << " byte\n";
+                break;
+            }
+            case 2: { // Mesaj şifrele
+                if (!demoKeyMgr.hasKey()) {
+                    std::cout << u8"\n⚠ Once bir oturum anahtari olusturun (Secim 1)!\n";
+                    break;
+                }
+                std::cout << u8"\nSifrelenecek mesaj: ";
+                std::string message;
+                std::getline(std::cin, message);
+                if (message.empty()) {
+                    std::cout << u8"⚠ Bos mesaj girildi!\n";
+                    break;
+                }
+                try {
+                    lastEncrypted = demoKeyMgr.encryptString(message);
+                    lastEncryptedHex = bytesToHex(lastEncrypted.ciphertext);
+                    std::cout << u8"\n✓ Mesaj AES-256-GCM ile sifrelendi!\n";
+                    std::cout << u8"Sifreli veri (hex): " << lastEncryptedHex.substr(0, 40);
+                    if (lastEncryptedHex.length() > 40) std::cout << "...";
+                    std::cout << "\n";
+                    std::cout << u8"IV (hex): " << bytesToHex(lastEncrypted.iv) << "\n";
+                    std::cout << u8"Tag (hex): " << bytesToHex(lastEncrypted.tag).substr(0, 16) << "...\n";
+                } catch (const std::exception& e) {
+                    std::cout << u8"⚠ Sifreleme hatasi: " << e.what() << "\n";
+                }
+                break;
+            }
+            case 3: { // Mesaj çöz
+                if (!demoKeyMgr.hasKey()) {
+                    std::cout << u8"\n⚠ Once bir oturum anahtari olusturun (Secim 1)!\n";
+                    break;
+                }
+                if (lastEncryptedHex.empty()) {
+                    std::cout << u8"\n⚠ Once bir mesaj sifreleyin (Secim 2)!\n";
+                    break;
+                }
+                try {
+                    std::string decrypted = demoKeyMgr.decryptToString(lastEncrypted);
+                    std::cout << u8"\n✓ Mesaj basariyla cozuldu!\n";
+                    std::cout << u8"Cozulen mesaj: " << decrypted << "\n";
+                } catch (const std::exception& e) {
+                    std::cout << u8"⚠ Cozme hatasi: " << e.what() << "\n";
+                }
+                break;
+            }
+            case 4: { // Anahtar rotasyonu
+                if (!demoKeyMgr.hasKey()) {
+                    std::cout << u8"\n⚠ Once bir oturum anahtari olusturun (Secim 1)!\n";
+                    break;
+                }
+                std::cout << u8"\n🔄 Anahtar rotasyonu yapiliyor...\n";
+                std::cout << u8"Eski anahtar kullanim sayisi: " << demoKeyMgr.getKeyUsageCount() << "\n";
+                auto newKey = demoKeyMgr.rotateSessionKey();
+                std::cout << u8"✓ Yeni anahtar olusturuldu!\n";
+                std::cout << u8"Yeni anahtar (hex): " << bytesToHex(newKey).substr(0, 32) << "...\n";
+                std::cout << u8"⚠ Eski anahtarla sifrelenmis veriler artik cozulemez!\n";
+                lastEncryptedHex.clear();
+                break;
+            }
+            case 5: { // PBKDF2 anahtar türetme
+                std::cout << u8"\n🔑 Paroladan Anahtar Turetme (PBKDF2-HMAC-SHA256)\n";
+                std::cout << u8"Parola girin: ";
+                std::string password;
+                std::getline(std::cin, password);
+                if (password.empty()) {
+                    std::cout << u8"⚠ Bos parola girildi!\n";
+                    break;
+                }
+                try {
+                    auto salt = SessionKeyManager::generateSalt();
+                    std::cout << u8"\nSalt (rastgele, hex): " << bytesToHex(salt) << "\n";
+                    std::cout << u8"Iterasyon sayisi: 100,000\n";
+                    auto derivedKey = SessionKeyManager::deriveKeyFromPassword(password, salt);
+                    std::cout << u8"\n✓ Anahtar turetildi!\n";
+                    std::cout << u8"Turetilen anahtar (hex): " << bytesToHex(derivedKey).substr(0, 32) << "...\n";
+                    std::cout << u8"Anahtar uzunlugu: " << derivedKey.size() << " byte (256-bit)\n";
+                } catch (const std::exception& e) {
+                    std::cout << u8"⚠ Turetme hatasi: " << e.what() << "\n";
+                }
+                break;
+            }
+            case 6: { // Sertifika pin ekle
+                std::cout << u8"\n📌 Sertifika Pin Ekleme\n";
+                std::cout << u8"Hostname (ornek: api.example.com): ";
+                std::string hostname;
+                std::getline(std::cin, hostname);
+                if (hostname.empty()) {
+                    std::cout << u8"⚠ Bos hostname girildi!\n";
+                    break;
+                }
+                // Demo için sahte bir hash oluştur
+                auto demoHash = SessionKeyManager::generateSalt();
+                auto demoHash2 = SessionKeyManager::generateSalt();
+                std::vector<uint8_t> fullHash;
+                fullHash.insert(fullHash.end(), demoHash.begin(), demoHash.end());
+                fullHash.insert(fullHash.end(), demoHash2.begin(), demoHash2.end());
+                std::string hashHex = bytesToHex(fullHash);
+                
+                if (demoPinning.addPinnedCertificate(hostname, hashHex)) {
+                    std::cout << u8"\n✓ Sertifika pini eklendi!\n";
+                    std::cout << u8"Hostname: " << hostname << "\n";
+                    std::cout << u8"SHA-256 Hash: " << hashHex.substr(0, 32) << "...\n";
+                    std::cout << u8"Toplam pin sayisi: " << demoPinning.getPinCount() << "\n";
+                } else {
+                    std::cout << u8"⚠ Pin eklenemedi!\n";
+                }
+                break;
+            }
+            case 7: { // TLS Context bilgisi
+                std::cout << u8"\n🔒 TLS Context Bilgisi\n";
+                TLSContext ctx;
+                TLSConfig config;
+                config.verifyPeer = false;
+                if (ctx.initialize(config)) {
+                    std::cout << u8"✓ TLS Context basariyla olusturuldu!\n";
+                    std::cout << u8"TLS Versiyonu: " << ctx.getTLSVersion() << "\n";
+                    auto ciphers = ctx.getSupportedCipherSuites();
+                    std::cout << u8"Desteklenen Cipher Suite sayisi: " << ciphers.size() << "\n";
+                    if (!ciphers.empty()) {
+                        std::cout << u8"Ornek cipher'lar:\n";
+                        for (size_t i = 0; i < std::min(size_t(3), ciphers.size()); ++i) {
+                            std::cout << u8"  - " << ciphers[i] << "\n";
+                        }
+                    }
+                } else {
+                    std::cout << u8"⚠ TLS Context olusturulamadi!\n";
+                }
+                break;
+            }
+            case 0:
+                break;
+            default:
+                std::cout << u8"Gecersiz secim!\n";
+                break;
+            }
+            std::cout << u8"\nDevam etmek icin Enter...\n"; std::cin.get();
             break;
         }
         default:
