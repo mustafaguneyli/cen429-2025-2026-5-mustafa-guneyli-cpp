@@ -73,7 +73,8 @@ call reportgenerator "-reports:**/lcov_doxygen_test_win.info" "-targetdir:assets
 
 echo Testing Application with Coverage
 echo Configure CMAKE
-call cmake -B build_win -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 17 2022" -DCMAKE_INSTALL_PREFIX:PATH=publish_win
+rem Use vcpkg toolchain for OpenSSL and other dependencies
+call cmake -B build_win -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 17 2022" -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_INSTALL_PREFIX:PATH=publish_win
 echo Build CMAKE Debug/Release
 call cmake --build build_win --config Debug -j4
 call cmake --build build_win --config Release -j4
