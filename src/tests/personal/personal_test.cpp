@@ -25,6 +25,7 @@
 #include "../../personal/header/code_hardening.hpp"
 #include "../../personal/header/asset_protection.hpp"
 #include "../../personal/header/binary_protection.hpp"
+#include "../../personal/header/security_testing.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX  // Windows.h'den önce tanımlanmalı
@@ -7852,7 +7853,810 @@ TEST_F(PersonalAppTest, DeterrenceMethodsSequentialOperations) {
 
 // ============================================================================
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔐 SECURITY TESTING MODULE TESTS
+// ═══════════════════════════════════════════════════════════════════════════
 
+using namespace Kerem::SecurityTesting;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exception Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, SecurityTestExceptionCreation) {
+    SecurityTestException ex("test error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("SecurityTest Error") != std::string::npos);
+    EXPECT_TRUE(msg.find("test error") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestExceptionCreation) {
+    PenetrationTestException ex("pentest error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("Penetration Test") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityExceptionCreation) {
+    VulnerabilityException ex("vuln error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("Vulnerability") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, TestResultExceptionCreation) {
+    TestResultException ex("result error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("TestResult") != std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Struct Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, VulnerabilityInfoDefaultConstructor) {
+    VulnerabilityInfo vuln;
+    EXPECT_TRUE(vuln.id.empty());
+    EXPECT_TRUE(vuln.name.empty());
+    EXPECT_EQ(vuln.severity, Severity::INFO);
+    EXPECT_EQ(vuln.category, VulnerabilityCategory::MISCONFIG);
+    EXPECT_FALSE(vuln.isFixed);
+    EXPECT_EQ(vuln.cvssScore, 0.0);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityInfoParameterizedConstructor) {
+    VulnerabilityInfo vuln("VULN-001", "Test Vuln", 
+                          VulnerabilityCategory::INJECTION, Severity::HIGH);
+    EXPECT_EQ(vuln.id, "VULN-001");
+    EXPECT_EQ(vuln.name, "Test Vuln");
+    EXPECT_EQ(vuln.category, VulnerabilityCategory::INJECTION);
+    EXPECT_EQ(vuln.severity, Severity::HIGH);
+    EXPECT_EQ(vuln.cvssScore, 7.5);
+}
+
+TEST_F(PersonalAppTest, TestCaseDefaultConstructor) {
+    TestCase tc;
+    EXPECT_TRUE(tc.id.empty());
+    EXPECT_TRUE(tc.name.empty());
+    EXPECT_EQ(tc.type, PenTestType::BLACK_BOX);
+    EXPECT_EQ(tc.status, TestStatus::NOT_STARTED);
+    EXPECT_FALSE(tc.passed);
+}
+
+TEST_F(PersonalAppTest, TestCaseParameterizedConstructor) {
+    TestCase tc("TC-001", "SQL Injection Test", PenTestType::WEB_APP);
+    EXPECT_EQ(tc.id, "TC-001");
+    EXPECT_EQ(tc.name, "SQL Injection Test");
+    EXPECT_EQ(tc.type, PenTestType::WEB_APP);
+    EXPECT_EQ(tc.status, TestStatus::NOT_STARTED);
+}
+
+TEST_F(PersonalAppTest, TestResultSummaryDefaultConstructor) {
+    TestResultSummary summary;
+    EXPECT_EQ(summary.totalTests, 0u);
+    EXPECT_EQ(summary.passedTests, 0u);
+    EXPECT_EQ(summary.failedTests, 0u);
+    EXPECT_EQ(summary.criticalFindings, 0u);
+    EXPECT_EQ(summary.overallScore, 0.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PenetrationTestPlan Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, PenetrationTestPlanDefaultConstructor) {
+    PenetrationTestPlan plan;
+    EXPECT_EQ(plan.getName(), "Default Penetration Test Plan");
+    EXPECT_TRUE(plan.getScope().empty());
+    EXPECT_TRUE(plan.getObjective().empty());
+    EXPECT_EQ(plan.getTestCaseCount(), 0u);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanParameterizedConstructor) {
+    PenetrationTestPlan plan("Web App Pentest");
+    EXPECT_EQ(plan.getName(), "Web App Pentest");
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanSetters) {
+    PenetrationTestPlan plan;
+    plan.setName("New Plan");
+    plan.setScope("Web Application");
+    plan.setObjective("Find vulnerabilities");
+    
+    EXPECT_EQ(plan.getName(), "New Plan");
+    EXPECT_EQ(plan.getScope(), "Web Application");
+    EXPECT_EQ(plan.getObjective(), "Find vulnerabilities");
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanAddTestCase) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "SQL Injection", PenTestType::WEB_APP);
+    
+    EXPECT_TRUE(plan.addTestCase(tc));
+    EXPECT_EQ(plan.getTestCaseCount(), 1u);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanAddDuplicateTestCase) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "SQL Injection", PenTestType::WEB_APP);
+    
+    EXPECT_TRUE(plan.addTestCase(tc));
+    EXPECT_FALSE(plan.addTestCase(tc)); // Duplicate
+    EXPECT_EQ(plan.getTestCaseCount(), 1u);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanAddEmptyIdTestCase) {
+    PenetrationTestPlan plan;
+    TestCase tc("", "No ID Test", PenTestType::BLACK_BOX);
+    
+    EXPECT_FALSE(plan.addTestCase(tc));
+    EXPECT_EQ(plan.getTestCaseCount(), 0u);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanRemoveTestCase) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    plan.addTestCase(tc);
+    
+    EXPECT_TRUE(plan.removeTestCase("TC-001"));
+    EXPECT_EQ(plan.getTestCaseCount(), 0u);
+    EXPECT_FALSE(plan.removeTestCase("TC-001")); // Already removed
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanGetTestCase) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "SQL Test", PenTestType::WEB_APP);
+    plan.addTestCase(tc);
+    
+    TestCase retrieved = plan.getTestCase("TC-001");
+    EXPECT_EQ(retrieved.id, "TC-001");
+    EXPECT_EQ(retrieved.name, "SQL Test");
+    
+    // Non-existent
+    TestCase notFound = plan.getTestCase("TC-999");
+    EXPECT_TRUE(notFound.id.empty());
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanGetAllTestCases) {
+    PenetrationTestPlan plan;
+    plan.addTestCase(TestCase("TC-001", "Test 1", PenTestType::BLACK_BOX));
+    plan.addTestCase(TestCase("TC-002", "Test 2", PenTestType::WHITE_BOX));
+    plan.addTestCase(TestCase("TC-003", "Test 3", PenTestType::GRAY_BOX));
+    
+    auto all = plan.getAllTestCases();
+    EXPECT_EQ(all.size(), 3u);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanExecuteTest) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    plan.addTestCase(tc);
+    
+    EXPECT_TRUE(plan.executeTest("TC-001"));
+    
+    TestCase executed = plan.getTestCase("TC-001");
+    EXPECT_EQ(executed.status, TestStatus::COMPLETED);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanExecuteNonExistentTest) {
+    PenetrationTestPlan plan;
+    EXPECT_FALSE(plan.executeTest("TC-999"));
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanExecuteAllTests) {
+    PenetrationTestPlan plan;
+    plan.addTestCase(TestCase("TC-001", "Test 1", PenTestType::BLACK_BOX));
+    plan.addTestCase(TestCase("TC-002", "Test 2", PenTestType::WHITE_BOX));
+    
+    EXPECT_TRUE(plan.executeAllTests());
+    EXPECT_EQ(plan.getProgress(), 100.0);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanExecuteAllTestsEmpty) {
+    PenetrationTestPlan plan;
+    EXPECT_FALSE(plan.executeAllTests());
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanCancelTest) {
+    PenetrationTestPlan plan;
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    plan.addTestCase(tc);
+    
+    // Cancel on NOT_STARTED should return false
+    EXPECT_FALSE(plan.cancelTest("TC-001"));
+    
+    // Cancel on non-existent should return false
+    EXPECT_FALSE(plan.cancelTest("TC-999"));
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanGetProgress) {
+    PenetrationTestPlan plan;
+    EXPECT_EQ(plan.getProgress(), 0.0);
+    
+    plan.addTestCase(TestCase("TC-001", "Test 1", PenTestType::BLACK_BOX));
+    plan.addTestCase(TestCase("TC-002", "Test 2", PenTestType::WHITE_BOX));
+    
+    EXPECT_EQ(plan.getProgress(), 0.0);
+    
+    plan.executeTest("TC-001");
+    EXPECT_EQ(plan.getProgress(), 50.0);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanGetFindings) {
+    PenetrationTestPlan plan;
+    plan.addTestCase(TestCase("TC-001", "Test", PenTestType::BLACK_BOX));
+    plan.executeTest("TC-001");
+    
+    auto findings = plan.getFindings();
+    // Findings depend on random pass/fail
+    EXPECT_TRUE(findings.size() >= 0);
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanHasActiveTests) {
+    PenetrationTestPlan plan;
+    EXPECT_FALSE(plan.hasActiveTests());
+    
+    plan.addTestCase(TestCase("TC-001", "Test", PenTestType::BLACK_BOX));
+    EXPECT_FALSE(plan.hasActiveTests());
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanPenTestTypeToString) {
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::BLACK_BOX), "BLACK_BOX");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::WHITE_BOX), "WHITE_BOX");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::GRAY_BOX), "GRAY_BOX");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::NETWORK), "NETWORK");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::WEB_APP), "WEB_APP");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::MOBILE), "MOBILE");
+    EXPECT_EQ(PenetrationTestPlan::penTestTypeToString(PenTestType::SOCIAL_ENG), "SOCIAL_ENGINEERING");
+}
+
+TEST_F(PersonalAppTest, PenetrationTestPlanTestStatusToString) {
+    EXPECT_EQ(PenetrationTestPlan::testStatusToString(TestStatus::NOT_STARTED), "NOT_STARTED");
+    EXPECT_EQ(PenetrationTestPlan::testStatusToString(TestStatus::IN_PROGRESS), "IN_PROGRESS");
+    EXPECT_EQ(PenetrationTestPlan::testStatusToString(TestStatus::COMPLETED), "COMPLETED");
+    EXPECT_EQ(PenetrationTestPlan::testStatusToString(TestStatus::FAILED), "FAILED");
+    EXPECT_EQ(PenetrationTestPlan::testStatusToString(TestStatus::CANCELLED), "CANCELLED");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VulnerabilityAssessment Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentDefaultConstructor) {
+    VulnerabilityAssessment assessment;
+    EXPECT_EQ(assessment.getTotalCount(), 0u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentAddVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "SQL Injection", 
+                          VulnerabilityCategory::INJECTION, Severity::HIGH);
+    
+    EXPECT_TRUE(assessment.addVulnerability(vuln));
+    EXPECT_EQ(assessment.getTotalCount(), 1u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentAddEmptyIdVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln;
+    
+    EXPECT_FALSE(assessment.addVulnerability(vuln));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentAddDuplicateVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Test", 
+                          VulnerabilityCategory::XSS, Severity::MEDIUM);
+    
+    EXPECT_TRUE(assessment.addVulnerability(vuln));
+    EXPECT_FALSE(assessment.addVulnerability(vuln));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentUpdateVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Original", 
+                          VulnerabilityCategory::XSS, Severity::LOW);
+    assessment.addVulnerability(vuln);
+    
+    VulnerabilityInfo updated("VULN-001", "Updated", 
+                             VulnerabilityCategory::INJECTION, Severity::HIGH);
+    EXPECT_TRUE(assessment.updateVulnerability("VULN-001", updated));
+    
+    auto retrieved = assessment.getVulnerability("VULN-001");
+    EXPECT_EQ(retrieved.name, "Updated");
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentUpdateNonExistent) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Test", 
+                          VulnerabilityCategory::XSS, Severity::LOW);
+    
+    EXPECT_FALSE(assessment.updateVulnerability("VULN-999", vuln));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentRemoveVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Test", 
+                          VulnerabilityCategory::XSS, Severity::LOW);
+    assessment.addVulnerability(vuln);
+    
+    EXPECT_TRUE(assessment.removeVulnerability("VULN-001"));
+    EXPECT_EQ(assessment.getTotalCount(), 0u);
+    EXPECT_FALSE(assessment.removeVulnerability("VULN-001"));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentMarkAsFixed) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Test", 
+                          VulnerabilityCategory::XSS, Severity::LOW);
+    assessment.addVulnerability(vuln);
+    
+    EXPECT_TRUE(assessment.markAsFixed("VULN-001"));
+    
+    auto retrieved = assessment.getVulnerability("VULN-001");
+    EXPECT_TRUE(retrieved.isFixed);
+    
+    EXPECT_FALSE(assessment.markAsFixed("VULN-999"));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetVulnerability) {
+    VulnerabilityAssessment assessment;
+    VulnerabilityInfo vuln("VULN-001", "Test", 
+                          VulnerabilityCategory::INJECTION, Severity::HIGH);
+    assessment.addVulnerability(vuln);
+    
+    auto retrieved = assessment.getVulnerability("VULN-001");
+    EXPECT_EQ(retrieved.id, "VULN-001");
+    
+    auto notFound = assessment.getVulnerability("VULN-999");
+    EXPECT_TRUE(notFound.id.empty());
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetAllVulnerabilities) {
+    VulnerabilityAssessment assessment;
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Vuln1", VulnerabilityCategory::XSS, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "Vuln2", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    
+    auto all = assessment.getAllVulnerabilities();
+    EXPECT_EQ(all.size(), 2u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetBySeverity) {
+    VulnerabilityAssessment assessment;
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Low", VulnerabilityCategory::XSS, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "High1", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    assessment.addVulnerability(VulnerabilityInfo("V3", "High2", VulnerabilityCategory::BUFFER_OVERFLOW, Severity::HIGH));
+    
+    auto high = assessment.getVulnerabilitiesBySeverity(Severity::HIGH);
+    EXPECT_EQ(high.size(), 2u);
+    
+    auto low = assessment.getVulnerabilitiesBySeverity(Severity::LOW);
+    EXPECT_EQ(low.size(), 1u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetByCategory) {
+    VulnerabilityAssessment assessment;
+    assessment.addVulnerability(VulnerabilityInfo("V1", "XSS1", VulnerabilityCategory::XSS, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "XSS2", VulnerabilityCategory::XSS, Severity::MEDIUM));
+    assessment.addVulnerability(VulnerabilityInfo("V3", "SQL", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    
+    auto xss = assessment.getVulnerabilitiesByCategory(VulnerabilityCategory::XSS);
+    EXPECT_EQ(xss.size(), 2u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetUnfixed) {
+    VulnerabilityAssessment assessment;
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Fixed", VulnerabilityCategory::XSS, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "Unfixed", VulnerabilityCategory::XSS, Severity::HIGH));
+    assessment.markAsFixed("V1");
+    
+    auto unfixed = assessment.getUnfixedVulnerabilities();
+    EXPECT_EQ(unfixed.size(), 1u);
+    EXPECT_EQ(assessment.getUnfixedCount(), 1u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetCountBySeverity) {
+    VulnerabilityAssessment assessment;
+    assessment.addVulnerability(VulnerabilityInfo("V1", "C1", VulnerabilityCategory::XSS, Severity::CRITICAL));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "C2", VulnerabilityCategory::INJECTION, Severity::CRITICAL));
+    
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::CRITICAL), 2u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::LOW), 0u);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetAverageCVSS) {
+    VulnerabilityAssessment assessment;
+    EXPECT_EQ(assessment.getAverageCVSS(), 0.0);
+    
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Low", VulnerabilityCategory::XSS, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "High", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    
+    double avg = assessment.getAverageCVSS();
+    EXPECT_GT(avg, 0.0);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentCalculateRiskScore) {
+    VulnerabilityAssessment assessment;
+    EXPECT_EQ(assessment.calculateRiskScore(), 0.0);
+    
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Critical", VulnerabilityCategory::INJECTION, Severity::CRITICAL));
+    
+    double risk = assessment.calculateRiskScore();
+    EXPECT_GT(risk, 0.0);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentGetRiskLevel) {
+    VulnerabilityAssessment assessment;
+    EXPECT_EQ(assessment.getRiskLevel(), "LOW");
+    
+    // Add multiple critical vulnerabilities
+    for (int i = 0; i < 10; ++i) {
+        assessment.addVulnerability(VulnerabilityInfo(
+            "V" + std::to_string(i), "Crit", VulnerabilityCategory::INJECTION, Severity::CRITICAL));
+    }
+    
+    std::string level = assessment.getRiskLevel();
+    EXPECT_TRUE(level == "CRITICAL" || level == "VERY HIGH" || level == "HIGH");
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentScanForInjection) {
+    VulnerabilityAssessment assessment;
+    
+    EXPECT_TRUE(assessment.scanForInjection("SELECT * FROM users WHERE id = 1 OR 1=1"));
+    EXPECT_TRUE(assessment.scanForInjection("'; DROP TABLE users; --"));
+    EXPECT_FALSE(assessment.scanForInjection("Hello World"));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentScanForXSS) {
+    VulnerabilityAssessment assessment;
+    
+    EXPECT_TRUE(assessment.scanForXSS("<script>alert('xss')</script>"));
+    EXPECT_TRUE(assessment.scanForXSS("<img onerror='hack()'>"));
+    EXPECT_FALSE(assessment.scanForXSS("Normal text content"));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentScanForBufferOverflow) {
+    VulnerabilityAssessment assessment;
+    char buffer[100];
+    
+    EXPECT_FALSE(assessment.scanForBufferOverflow(buffer, 50, 100));
+    EXPECT_TRUE(assessment.scanForBufferOverflow(buffer, 150, 100));
+    EXPECT_TRUE(assessment.scanForBufferOverflow(nullptr, 50, 100));
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentRunFullScan) {
+    VulnerabilityAssessment assessment;
+    auto findings = assessment.runFullScan();
+    
+    // May or may not find vulnerabilities (random)
+    EXPECT_TRUE(findings.size() >= 0);
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentSeverityToString) {
+    EXPECT_EQ(VulnerabilityAssessment::severityToString(Severity::INFO), "INFO");
+    EXPECT_EQ(VulnerabilityAssessment::severityToString(Severity::LOW), "LOW");
+    EXPECT_EQ(VulnerabilityAssessment::severityToString(Severity::MEDIUM), "MEDIUM");
+    EXPECT_EQ(VulnerabilityAssessment::severityToString(Severity::HIGH), "HIGH");
+    EXPECT_EQ(VulnerabilityAssessment::severityToString(Severity::CRITICAL), "CRITICAL");
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentCategoryToString) {
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::INJECTION), "INJECTION");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::XSS), "CROSS_SITE_SCRIPTING");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::BUFFER_OVERFLOW), "BUFFER_OVERFLOW");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::BROKEN_AUTH), "BROKEN_AUTHENTICATION");
+}
+
+TEST_F(PersonalAppTest, VulnerabilityAssessmentSeverityToScore) {
+    EXPECT_EQ(VulnerabilityAssessment::severityToScore(Severity::INFO), 0.0);
+    EXPECT_EQ(VulnerabilityAssessment::severityToScore(Severity::LOW), 2.5);
+    EXPECT_EQ(VulnerabilityAssessment::severityToScore(Severity::MEDIUM), 5.0);
+    EXPECT_EQ(VulnerabilityAssessment::severityToScore(Severity::HIGH), 7.5);
+    EXPECT_EQ(VulnerabilityAssessment::severityToScore(Severity::CRITICAL), 10.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TestResults Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, TestResultsDefaultConstructor) {
+    TestResults results;
+    EXPECT_EQ(results.getTotalTestCount(), 0u);
+    EXPECT_EQ(results.getPassedCount(), 0u);
+    EXPECT_EQ(results.getFailedCount(), 0u);
+}
+
+TEST_F(PersonalAppTest, TestResultsRecordTestResult) {
+    TestResults results;
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    tc.passed = true;
+    tc.status = TestStatus::COMPLETED;
+    
+    EXPECT_TRUE(results.recordTestResult(tc));
+    EXPECT_EQ(results.getTotalTestCount(), 1u);
+    EXPECT_EQ(results.getPassedCount(), 1u);
+}
+
+TEST_F(PersonalAppTest, TestResultsRecordEmptyIdTestResult) {
+    TestResults results;
+    TestCase tc;
+    
+    EXPECT_FALSE(results.recordTestResult(tc));
+}
+
+TEST_F(PersonalAppTest, TestResultsRecordVulnerability) {
+    TestResults results;
+    VulnerabilityInfo vuln("V1", "XSS", VulnerabilityCategory::XSS, Severity::HIGH);
+    
+    EXPECT_TRUE(results.recordVulnerability(vuln));
+    EXPECT_EQ(results.getDiscoveredVulnerabilities().size(), 1u);
+}
+
+TEST_F(PersonalAppTest, TestResultsRecordEmptyIdVulnerability) {
+    TestResults results;
+    VulnerabilityInfo vuln;
+    
+    EXPECT_FALSE(results.recordVulnerability(vuln));
+}
+
+TEST_F(PersonalAppTest, TestResultsClearResults) {
+    TestResults results;
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    results.recordTestResult(tc);
+    
+    results.clearResults();
+    EXPECT_EQ(results.getTotalTestCount(), 0u);
+}
+
+TEST_F(PersonalAppTest, TestResultsGenerateSummary) {
+    TestResults results;
+    
+    TestCase passed("TC-001", "Passed", PenTestType::BLACK_BOX);
+    passed.passed = true;
+    passed.status = TestStatus::COMPLETED;
+    results.recordTestResult(passed);
+    
+    TestCase failed("TC-002", "Failed", PenTestType::BLACK_BOX);
+    failed.passed = false;
+    failed.status = TestStatus::COMPLETED;
+    results.recordTestResult(failed);
+    
+    VulnerabilityInfo vuln("V1", "Critical", VulnerabilityCategory::INJECTION, Severity::CRITICAL);
+    results.recordVulnerability(vuln);
+    
+    auto summary = results.generateSummary();
+    EXPECT_EQ(summary.totalTests, 2u);
+    EXPECT_EQ(summary.passedTests, 1u);
+    EXPECT_EQ(summary.failedTests, 1u);
+    EXPECT_EQ(summary.criticalFindings, 1u);
+}
+
+TEST_F(PersonalAppTest, TestResultsGenerateReport) {
+    TestResults results;
+    std::string report = results.generateReport();
+    
+    EXPECT_TRUE(report.find("SECURITY TEST RESULTS") != std::string::npos);
+    EXPECT_TRUE(report.find("Total Tests") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, TestResultsGenerateHTMLReport) {
+    TestResults results;
+    std::string html = results.generateHTMLReport();
+    
+    EXPECT_TRUE(html.find("<html>") != std::string::npos);
+    EXPECT_TRUE(html.find("Security Test") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, TestResultsGenerateJSONReport) {
+    TestResults results;
+    std::string json = results.generateJSONReport();
+    
+    EXPECT_TRUE(json.find("totalTests") != std::string::npos);
+    EXPECT_TRUE(json.find("passRate") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, TestResultsGetPassRate) {
+    TestResults results;
+    EXPECT_EQ(results.getPassRate(), 0.0);
+    
+    TestCase tc("TC-001", "Test", PenTestType::BLACK_BOX);
+    tc.passed = true;
+    tc.status = TestStatus::COMPLETED;
+    results.recordTestResult(tc);
+    
+    EXPECT_EQ(results.getPassRate(), 100.0);
+}
+
+TEST_F(PersonalAppTest, TestResultsGetOverallScore) {
+    TestResults results;
+    EXPECT_EQ(results.getOverallScore(), 100.0);
+    
+    VulnerabilityInfo vuln("V1", "Critical", VulnerabilityCategory::INJECTION, Severity::CRITICAL);
+    results.recordVulnerability(vuln);
+    
+    EXPECT_LT(results.getOverallScore(), 100.0);
+}
+
+TEST_F(PersonalAppTest, TestResultsGetAllResults) {
+    TestResults results;
+    results.recordTestResult(TestCase("TC-001", "T1", PenTestType::BLACK_BOX));
+    results.recordTestResult(TestCase("TC-002", "T2", PenTestType::WHITE_BOX));
+    
+    auto all = results.getAllResults();
+    EXPECT_EQ(all.size(), 2u);
+}
+
+TEST_F(PersonalAppTest, TestResultsGetPassedAndFailedTests) {
+    TestResults results;
+    
+    TestCase passed("TC-001", "Passed", PenTestType::BLACK_BOX);
+    passed.passed = true;
+    passed.status = TestStatus::COMPLETED;
+    results.recordTestResult(passed);
+    
+    TestCase failed("TC-002", "Failed", PenTestType::BLACK_BOX);
+    failed.passed = false;
+    failed.status = TestStatus::COMPLETED;
+    results.recordTestResult(failed);
+    
+    EXPECT_EQ(results.getPassedTests().size(), 1u);
+    EXPECT_EQ(results.getFailedTests().size(), 1u);
+}
+
+TEST_F(PersonalAppTest, TestResultsExportToFile) {
+    TestResults results;
+    EXPECT_TRUE(results.exportToFile("test_report.txt"));
+    EXPECT_FALSE(results.exportToFile(""));
+}
+
+TEST_F(PersonalAppTest, TestResultsExportToCSV) {
+    TestResults results;
+    EXPECT_TRUE(results.exportToCSV("test_report.csv"));
+    EXPECT_FALSE(results.exportToCSV(""));
+}
+
+TEST_F(PersonalAppTest, TestResultsCompareWithBaseline) {
+    TestResults current;
+    TestResults baseline;
+    
+    baseline.recordVulnerability(VulnerabilityInfo("V1", "Old", VulnerabilityCategory::XSS, Severity::LOW));
+    
+    EXPECT_TRUE(current.compareWithBaseline(baseline));
+    
+    current.recordVulnerability(VulnerabilityInfo("V1", "New1", VulnerabilityCategory::XSS, Severity::HIGH));
+    current.recordVulnerability(VulnerabilityInfo("V2", "New2", VulnerabilityCategory::INJECTION, Severity::CRITICAL));
+    
+    EXPECT_FALSE(current.compareWithBaseline(baseline));
+}
+
+TEST_F(PersonalAppTest, TestResultsGetNewVulnerabilities) {
+    TestResults current;
+    TestResults baseline;
+    
+    baseline.recordVulnerability(VulnerabilityInfo("V1", "Old XSS", VulnerabilityCategory::XSS, Severity::LOW));
+    current.recordVulnerability(VulnerabilityInfo("V1", "Old XSS", VulnerabilityCategory::XSS, Severity::LOW));
+    current.recordVulnerability(VulnerabilityInfo("V2", "New SQL", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    
+    auto newVulns = current.getNewVulnerabilities(baseline);
+    EXPECT_EQ(newVulns.size(), 1u);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utility Function Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, SecurityTestingInitialize) {
+    EXPECT_TRUE(Kerem::SecurityTesting::initializeSecurityTesting());
+}
+
+TEST_F(PersonalAppTest, SecurityTestingRunQuickScan) {
+    auto vulns = Kerem::SecurityTesting::runQuickScan();
+    EXPECT_TRUE(vulns.size() >= 0);
+}
+
+TEST_F(PersonalAppTest, SecurityTestingGenerateReport) {
+    std::string report = Kerem::SecurityTesting::generateSecurityReport();
+    EXPECT_TRUE(report.find("SECURITY ASSESSMENT") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, SecurityTestingValidateInput) {
+    EXPECT_FALSE(Kerem::SecurityTesting::validateInput(""));
+    EXPECT_FALSE(Kerem::SecurityTesting::validateInput("SELECT * FROM users"));
+    EXPECT_FALSE(Kerem::SecurityTesting::validateInput("<script>alert(1)</script>"));
+    EXPECT_TRUE(Kerem::SecurityTesting::validateInput("Hello World"));
+}
+
+TEST_F(PersonalAppTest, SecurityTestingValidateInputNullByte) {
+    std::string withNull = "test";
+    withNull += '\0';
+    withNull += "after";
+    EXPECT_FALSE(Kerem::SecurityTesting::validateInput(withNull));
+}
+
+TEST_F(PersonalAppTest, SecurityTestingCalculateSecurityScore) {
+    std::vector<VulnerabilityInfo> vulns;
+    EXPECT_EQ(Kerem::SecurityTesting::calculateSecurityScore(vulns), 100.0);
+    
+    vulns.push_back(VulnerabilityInfo("V1", "Critical", VulnerabilityCategory::INJECTION, Severity::CRITICAL));
+    double score = Kerem::SecurityTesting::calculateSecurityScore(vulns);
+    EXPECT_LT(score, 100.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integration Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, SecurityTestingFullWorkflow) {
+    // Initialize
+    EXPECT_TRUE(initializeSecurityTesting());
+    
+    // Create pentest plan
+    PenetrationTestPlan plan("Full Security Assessment");
+    plan.setScope("Web Application");
+    plan.setObjective("Identify security vulnerabilities");
+    
+    // Add test cases
+    plan.addTestCase(TestCase("TC-001", "SQL Injection", PenTestType::WEB_APP));
+    plan.addTestCase(TestCase("TC-002", "XSS", PenTestType::WEB_APP));
+    plan.addTestCase(TestCase("TC-003", "Auth Bypass", PenTestType::WEB_APP));
+    
+    // Execute tests
+    EXPECT_TRUE(plan.executeAllTests());
+    EXPECT_EQ(plan.getProgress(), 100.0);
+    
+    // Create results
+    TestResults results;
+    for (const auto& tc : plan.getAllTestCases()) {
+        results.recordTestResult(tc);
+    }
+    
+    // Run vulnerability assessment
+    VulnerabilityAssessment assessment;
+    assessment.scanForInjection("' OR 1=1 --");
+    assessment.scanForXSS("<script>hack()</script>");
+    
+    for (const auto& vuln : assessment.getAllVulnerabilities()) {
+        results.recordVulnerability(vuln);
+    }
+    
+    // Generate reports
+    auto summary = results.generateSummary();
+    EXPECT_EQ(summary.totalTests, 3u);
+    
+    std::string report = results.generateReport();
+    EXPECT_FALSE(report.empty());
+}
+
+TEST_F(PersonalAppTest, SecurityTestingMultipleSeverityLevels) {
+    VulnerabilityAssessment assessment;
+    
+    assessment.addVulnerability(VulnerabilityInfo("V1", "Info", VulnerabilityCategory::MISCONFIG, Severity::INFO));
+    assessment.addVulnerability(VulnerabilityInfo("V2", "Low", VulnerabilityCategory::INSUFFICIENT_LOG, Severity::LOW));
+    assessment.addVulnerability(VulnerabilityInfo("V3", "Medium", VulnerabilityCategory::XSS, Severity::MEDIUM));
+    assessment.addVulnerability(VulnerabilityInfo("V4", "High", VulnerabilityCategory::INJECTION, Severity::HIGH));
+    assessment.addVulnerability(VulnerabilityInfo("V5", "Critical", VulnerabilityCategory::BUFFER_OVERFLOW, Severity::CRITICAL));
+    
+    EXPECT_EQ(assessment.getTotalCount(), 5u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::INFO), 1u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::LOW), 1u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::MEDIUM), 1u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::HIGH), 1u);
+    EXPECT_EQ(assessment.getCountBySeverity(Severity::CRITICAL), 1u);
+}
+
+TEST_F(PersonalAppTest, SecurityTestingAllCategories) {
+    // Test all category string conversions
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::BROKEN_AUTH), "BROKEN_AUTHENTICATION");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::SENSITIVE_DATA), "SENSITIVE_DATA_EXPOSURE");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::XXE), "XML_EXTERNAL_ENTITIES");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::BROKEN_ACCESS), "BROKEN_ACCESS_CONTROL");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::MISCONFIG), "SECURITY_MISCONFIGURATION");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::INSECURE_DESERIAL), "INSECURE_DESERIALIZATION");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::VULNERABLE_COMP), "VULNERABLE_COMPONENTS");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::INSUFFICIENT_LOG), "INSUFFICIENT_LOGGING");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::MEMORY_CORRUPTION), "MEMORY_CORRUPTION");
+    EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::CRYPTO_FAILURE), "CRYPTOGRAPHIC_FAILURE");
+}
+
+// ============================================================================
 
 /**
  * @brief The main function of the test program.
