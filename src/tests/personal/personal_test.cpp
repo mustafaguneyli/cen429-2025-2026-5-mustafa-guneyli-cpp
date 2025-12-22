@@ -26,6 +26,7 @@
 #include "../../personal/header/asset_protection.hpp"
 #include "../../personal/header/binary_protection.hpp"
 #include "../../personal/header/security_testing.hpp"
+#include "../../personal/header/security_standards.hpp"
 
 #ifdef _WIN32
 #define NOMINMAX  // Windows.h'den önce tanımlanmalı
@@ -8654,6 +8655,640 @@ TEST_F(PersonalAppTest, SecurityTestingAllCategories) {
     EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::INSUFFICIENT_LOG), "INSUFFICIENT_LOGGING");
     EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::MEMORY_CORRUPTION), "MEMORY_CORRUPTION");
     EXPECT_EQ(VulnerabilityAssessment::categoryToString(VulnerabilityCategory::CRYPTO_FAILURE), "CRYPTOGRAPHIC_FAILURE");
+}
+
+// ============================================================================
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📋 SECURITY STANDARDS MODULE TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+using namespace Kerem::SecurityStandards;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Exception Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, StandardsExceptionCreation) {
+    StandardsException ex("test error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("Standards Error") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, ComplianceExceptionCreation) {
+    ComplianceException ex("compliance error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("Compliance") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, OWASPExceptionCreation) {
+    OWASPException ex("owasp error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("OWASP") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, CertificationExceptionCreation) {
+    CertificationException ex("cert error");
+    std::string msg = ex.what();
+    EXPECT_TRUE(msg.find("Certification") != std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Struct Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, ComplianceRequirementDefaultConstructor) {
+    ComplianceRequirement req;
+    EXPECT_TRUE(req.id.empty());
+    EXPECT_TRUE(req.name.empty());
+    EXPECT_FALSE(req.isMet);
+}
+
+TEST_F(PersonalAppTest, ComplianceRequirementParameterizedConstructor) {
+    ComplianceRequirement req("REQ-001", "Test Requirement", StandardType::FIPS);
+    EXPECT_EQ(req.id, "REQ-001");
+    EXPECT_EQ(req.name, "Test Requirement");
+    EXPECT_EQ(req.standard, StandardType::FIPS);
+}
+
+TEST_F(PersonalAppTest, OWASPControlDefaultConstructor) {
+    OWASPControl ctrl;
+    EXPECT_TRUE(ctrl.id.empty());
+    EXPECT_FALSE(ctrl.isImplemented);
+    EXPECT_EQ(ctrl.effectiveness, 0.0);
+}
+
+TEST_F(PersonalAppTest, OWASPControlParameterizedConstructor) {
+    OWASPControl ctrl("CTRL-001", "Access Control", OWASPCategory::A01_BROKEN_ACCESS);
+    EXPECT_EQ(ctrl.id, "CTRL-001");
+    EXPECT_EQ(ctrl.name, "Access Control");
+    EXPECT_EQ(ctrl.category, OWASPCategory::A01_BROKEN_ACCESS);
+}
+
+TEST_F(PersonalAppTest, CertificationReadinessDefaultConstructor) {
+    CertificationReadiness readiness;
+    EXPECT_EQ(readiness.currentLevel, CertificationLevel::NONE);
+    EXPECT_EQ(readiness.targetLevel, CertificationLevel::BASIC);
+    EXPECT_EQ(readiness.readinessScore, 0.0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compliance Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, ComplianceDefaultConstructor) {
+    Compliance compliance;
+    EXPECT_EQ(compliance.getTargetStandard(), StandardType::FIPS);
+    EXPECT_EQ(compliance.getTotalRequirements(), 0u);
+}
+
+TEST_F(PersonalAppTest, ComplianceParameterizedConstructor) {
+    Compliance compliance(StandardType::ETSI);
+    EXPECT_EQ(compliance.getTargetStandard(), StandardType::ETSI);
+    EXPECT_GT(compliance.getTotalRequirements(), 0u);
+}
+
+TEST_F(PersonalAppTest, ComplianceSetTargetStandard) {
+    Compliance compliance;
+    compliance.setTargetStandard(StandardType::EMV);
+    EXPECT_EQ(compliance.getTargetStandard(), StandardType::EMV);
+}
+
+TEST_F(PersonalAppTest, ComplianceAddRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    
+    EXPECT_TRUE(compliance.addRequirement(req));
+    EXPECT_EQ(compliance.getTotalRequirements(), 1u);
+}
+
+TEST_F(PersonalAppTest, ComplianceAddEmptyIdRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req;
+    EXPECT_FALSE(compliance.addRequirement(req));
+}
+
+TEST_F(PersonalAppTest, ComplianceAddDuplicateRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    
+    EXPECT_TRUE(compliance.addRequirement(req));
+    EXPECT_FALSE(compliance.addRequirement(req));
+}
+
+TEST_F(PersonalAppTest, ComplianceUpdateRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Original", StandardType::FIPS);
+    compliance.addRequirement(req);
+    
+    ComplianceRequirement updated("REQ-001", "Updated", StandardType::ETSI);
+    updated.isMet = true;
+    EXPECT_TRUE(compliance.updateRequirement("REQ-001", updated));
+    
+    auto retrieved = compliance.getRequirement("REQ-001");
+    EXPECT_TRUE(retrieved.isMet);
+}
+
+TEST_F(PersonalAppTest, ComplianceUpdateNonExistent) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    EXPECT_FALSE(compliance.updateRequirement("REQ-999", req));
+}
+
+TEST_F(PersonalAppTest, ComplianceRemoveRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    compliance.addRequirement(req);
+    
+    EXPECT_TRUE(compliance.removeRequirement("REQ-001"));
+    EXPECT_EQ(compliance.getTotalRequirements(), 0u);
+}
+
+TEST_F(PersonalAppTest, ComplianceGetRequirement) {
+    Compliance compliance;
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    compliance.addRequirement(req);
+    
+    auto retrieved = compliance.getRequirement("REQ-001");
+    EXPECT_EQ(retrieved.id, "REQ-001");
+    
+    auto notFound = compliance.getRequirement("REQ-999");
+    EXPECT_TRUE(notFound.id.empty());
+}
+
+TEST_F(PersonalAppTest, ComplianceGetAllRequirements) {
+    Compliance compliance;
+    compliance.addRequirement(ComplianceRequirement("REQ-001", "R1", StandardType::FIPS));
+    compliance.addRequirement(ComplianceRequirement("REQ-002", "R2", StandardType::ETSI));
+    
+    auto all = compliance.getAllRequirements();
+    EXPECT_EQ(all.size(), 2u);
+}
+
+TEST_F(PersonalAppTest, ComplianceGetUnmetRequirements) {
+    Compliance compliance;
+    ComplianceRequirement req1("REQ-001", "Met", StandardType::FIPS);
+    req1.isMet = true;
+    ComplianceRequirement req2("REQ-002", "Unmet", StandardType::FIPS);
+    req2.isMet = false;
+    
+    compliance.addRequirement(req1);
+    compliance.addRequirement(req2);
+    
+    auto unmet = compliance.getUnmetRequirements();
+    EXPECT_EQ(unmet.size(), 1u);
+}
+
+TEST_F(PersonalAppTest, ComplianceCheckETSI) {
+    Compliance compliance(StandardType::ETSI);
+    bool result = compliance.checkETSICompliance();
+    EXPECT_FALSE(result); // Not all met initially
+}
+
+TEST_F(PersonalAppTest, ComplianceCheckEMV) {
+    Compliance compliance(StandardType::EMV);
+    bool result = compliance.checkEMVCompliance();
+    EXPECT_FALSE(result);
+}
+
+TEST_F(PersonalAppTest, ComplianceCheckFIPS) {
+    Compliance compliance(StandardType::FIPS);
+    bool result = compliance.checkFIPSCompliance(FIPSLevel::LEVEL_1);
+    EXPECT_FALSE(result);
+}
+
+TEST_F(PersonalAppTest, ComplianceCheckPCIDSS) {
+    Compliance compliance;
+    ComplianceRequirement req("PCI-001", "Test", StandardType::PCI_DSS);
+    compliance.addRequirement(req);
+    bool result = compliance.checkPCIDSSCompliance();
+    EXPECT_FALSE(result);
+}
+
+TEST_F(PersonalAppTest, ComplianceGetOverallStatus) {
+    Compliance compliance;
+    EXPECT_EQ(compliance.getOverallStatus(), ComplianceStatus::NON_COMPLIANT);
+    
+    ComplianceRequirement req("REQ-001", "Test", StandardType::FIPS);
+    req.isMet = true;
+    compliance.addRequirement(req);
+    EXPECT_EQ(compliance.getOverallStatus(), ComplianceStatus::COMPLIANT);
+}
+
+TEST_F(PersonalAppTest, ComplianceGetMetRequirements) {
+    Compliance compliance;
+    ComplianceRequirement req1("REQ-001", "Met", StandardType::FIPS);
+    req1.isMet = true;
+    ComplianceRequirement req2("REQ-002", "Unmet", StandardType::FIPS);
+    
+    compliance.addRequirement(req1);
+    compliance.addRequirement(req2);
+    
+    EXPECT_EQ(compliance.getMetRequirements(), 1u);
+}
+
+TEST_F(PersonalAppTest, ComplianceGetCompliancePercentage) {
+    Compliance compliance;
+    EXPECT_EQ(compliance.getCompliancePercentage(), 0.0);
+    
+    ComplianceRequirement req1("REQ-001", "Met", StandardType::FIPS);
+    req1.isMet = true;
+    ComplianceRequirement req2("REQ-002", "Unmet", StandardType::FIPS);
+    
+    compliance.addRequirement(req1);
+    compliance.addRequirement(req2);
+    
+    EXPECT_EQ(compliance.getCompliancePercentage(), 50.0);
+}
+
+TEST_F(PersonalAppTest, ComplianceGenerateReport) {
+    Compliance compliance(StandardType::FIPS);
+    std::string report = compliance.generateComplianceReport();
+    
+    EXPECT_TRUE(report.find("COMPLIANCE STATUS") != std::string::npos);
+    EXPECT_TRUE(report.find("FIPS") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, ComplianceStandardTypeToString) {
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::ETSI), "ETSI");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::EMV), "EMV");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::FIPS), "FIPS");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::PCI_DSS), "PCI-DSS");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::ISO_27001), "ISO 27001");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::NIST), "NIST");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::GDPR), "GDPR");
+    EXPECT_EQ(Compliance::standardTypeToString(StandardType::HIPAA), "HIPAA");
+}
+
+TEST_F(PersonalAppTest, ComplianceStatusToString) {
+    EXPECT_EQ(Compliance::complianceStatusToString(ComplianceStatus::NON_COMPLIANT), "NON_COMPLIANT");
+    EXPECT_EQ(Compliance::complianceStatusToString(ComplianceStatus::PARTIALLY_COMPLIANT), "PARTIALLY_COMPLIANT");
+    EXPECT_EQ(Compliance::complianceStatusToString(ComplianceStatus::COMPLIANT), "COMPLIANT");
+    EXPECT_EQ(Compliance::complianceStatusToString(ComplianceStatus::EXCEEDS), "EXCEEDS");
+}
+
+TEST_F(PersonalAppTest, ComplianceFIPSLevelToString) {
+    EXPECT_EQ(Compliance::fipsLevelToString(FIPSLevel::LEVEL_1), "FIPS 140-2 Level 1");
+    EXPECT_EQ(Compliance::fipsLevelToString(FIPSLevel::LEVEL_2), "FIPS 140-2 Level 2");
+    EXPECT_EQ(Compliance::fipsLevelToString(FIPSLevel::LEVEL_3), "FIPS 140-2 Level 3");
+    EXPECT_EQ(Compliance::fipsLevelToString(FIPSLevel::LEVEL_4), "FIPS 140-2 Level 4");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// OWASPStandards Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, OWASPStandardsDefaultConstructor) {
+    OWASPStandards owasp;
+    EXPECT_GT(owasp.getTotalControls(), 0u); // Has default controls
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsAddControl) {
+    OWASPStandards owasp;
+    size_t initial = owasp.getTotalControls();
+    OWASPControl ctrl("CUSTOM-001", "Custom Control", OWASPCategory::A03_INJECTION);
+    
+    EXPECT_TRUE(owasp.addControl(ctrl));
+    EXPECT_EQ(owasp.getTotalControls(), initial + 1);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsAddEmptyIdControl) {
+    OWASPStandards owasp;
+    OWASPControl ctrl;
+    EXPECT_FALSE(owasp.addControl(ctrl));
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsAddDuplicateControl) {
+    OWASPStandards owasp;
+    OWASPControl ctrl("CUSTOM-001", "Test", OWASPCategory::A03_INJECTION);
+    owasp.addControl(ctrl);
+    EXPECT_FALSE(owasp.addControl(ctrl));
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsUpdateControl) {
+    OWASPStandards owasp;
+    OWASPControl ctrl("CUSTOM-001", "Original", OWASPCategory::A03_INJECTION);
+    owasp.addControl(ctrl);
+    
+    OWASPControl updated("CUSTOM-001", "Updated", OWASPCategory::A03_INJECTION);
+    updated.isImplemented = true;
+    EXPECT_TRUE(owasp.updateControl("CUSTOM-001", updated));
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsRemoveControl) {
+    OWASPStandards owasp;
+    OWASPControl ctrl("CUSTOM-001", "Test", OWASPCategory::A03_INJECTION);
+    owasp.addControl(ctrl);
+    EXPECT_TRUE(owasp.removeControl("CUSTOM-001"));
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetControl) {
+    OWASPStandards owasp;
+    OWASPControl ctrl("CUSTOM-001", "Test", OWASPCategory::A03_INJECTION);
+    owasp.addControl(ctrl);
+    
+    auto retrieved = owasp.getControl("CUSTOM-001");
+    EXPECT_EQ(retrieved.id, "CUSTOM-001");
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetControlsByCategory) {
+    OWASPStandards owasp;
+    auto injection = owasp.getControlsByCategory(OWASPCategory::A03_INJECTION);
+    EXPECT_GT(injection.size(), 0u);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckBrokenAccessControl) {
+    OWASPStandards owasp;
+    bool result = owasp.checkBrokenAccessControl();
+    EXPECT_FALSE(result); // Not implemented by default
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckCryptographicFailures) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkCryptographicFailures());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckInjection) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkInjection());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckInsecureDesign) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkInsecureDesign());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckSecurityMisconfiguration) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkSecurityMisconfiguration());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckVulnerableComponents) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkVulnerableComponents());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckAuthenticationFailures) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkAuthenticationFailures());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckIntegrityFailures) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkIntegrityFailures());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckLoggingFailures) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkLoggingFailures());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCheckSSRF) {
+    OWASPStandards owasp;
+    EXPECT_FALSE(owasp.checkSSRF());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsRunAllChecks) {
+    OWASPStandards owasp;
+    auto failed = owasp.runAllChecks();
+    EXPECT_EQ(failed.size(), 10u); // All 10 should fail initially
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetImplementedControls) {
+    OWASPStandards owasp;
+    EXPECT_EQ(owasp.getImplementedControls(), 0u);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetImplementationRate) {
+    OWASPStandards owasp;
+    EXPECT_EQ(owasp.getImplementationRate(), 0.0);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetAverageEffectiveness) {
+    OWASPStandards owasp;
+    EXPECT_EQ(owasp.getAverageEffectiveness(), 0.0);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCalculateRiskScore) {
+    OWASPStandards owasp;
+    double risk = owasp.calculateRiskScore();
+    EXPECT_GT(risk, 0.0);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetRiskLevel) {
+    OWASPStandards owasp;
+    std::string level = owasp.getRiskLevel();
+    EXPECT_FALSE(level.empty());
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsCategoryToString) {
+    EXPECT_TRUE(OWASPStandards::categoryToString(OWASPCategory::A01_BROKEN_ACCESS).find("Access Control") != std::string::npos);
+    EXPECT_TRUE(OWASPStandards::categoryToString(OWASPCategory::A03_INJECTION).find("Injection") != std::string::npos);
+    EXPECT_TRUE(OWASPStandards::categoryToString(OWASPCategory::A10_SSRF).find("SSRF") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, OWASPStandardsGetCategoryDescription) {
+    std::string desc = OWASPStandards::getCategoryDescription(OWASPCategory::A03_INJECTION);
+    EXPECT_TRUE(desc.find("interpreter") != std::string::npos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CertificationPreparation Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, CertificationPreparationDefaultConstructor) {
+    CertificationPreparation prep;
+    EXPECT_EQ(prep.getTargetStandard(), StandardType::FIPS);
+    EXPECT_EQ(prep.getTargetLevel(), CertificationLevel::BASIC);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationParameterizedConstructor) {
+    CertificationPreparation prep(StandardType::ISO_27001);
+    EXPECT_EQ(prep.getTargetStandard(), StandardType::ISO_27001);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationSetTargetStandard) {
+    CertificationPreparation prep;
+    prep.setTargetStandard(StandardType::PCI_DSS);
+    EXPECT_EQ(prep.getTargetStandard(), StandardType::PCI_DSS);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationSetTargetLevel) {
+    CertificationPreparation prep;
+    prep.setTargetLevel(CertificationLevel::ADVANCED);
+    EXPECT_EQ(prep.getTargetLevel(), CertificationLevel::ADVANCED);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationIdentifyGaps) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto gaps = prep.identifyGaps();
+    EXPECT_GT(gaps.size(), 0u);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetRecommendations) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto recs = prep.getRecommendations();
+    EXPECT_GT(recs.size(), 0u);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationAssessReadiness) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto readiness = prep.assessReadiness();
+    EXPECT_EQ(readiness.targetStandard, StandardType::FIPS);
+    EXPECT_GE(readiness.readinessScore, 0.0);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationAddTask) {
+    CertificationPreparation prep;
+    EXPECT_TRUE(prep.addPreparationTask("TASK-NEW", "New Task"));
+    EXPECT_FALSE(prep.addPreparationTask("", "Empty ID"));
+    EXPECT_FALSE(prep.addPreparationTask("TASK-NEW", "Duplicate"));
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationCompleteTask) {
+    CertificationPreparation prep(StandardType::FIPS);
+    EXPECT_TRUE(prep.completeTask("TASK-001"));
+    EXPECT_TRUE(prep.isTaskComplete("TASK-001"));
+    EXPECT_FALSE(prep.completeTask("TASK-NONEXIST"));
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetPendingTasks) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto pending = prep.getPendingTasks();
+    EXPECT_GT(pending.size(), 0u);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetCompletedTasks) {
+    CertificationPreparation prep(StandardType::FIPS);
+    prep.completeTask("TASK-001");
+    auto completed = prep.getCompletedTasks();
+    EXPECT_EQ(completed.size(), 1u);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetPreparationProgress) {
+    CertificationPreparation prep(StandardType::FIPS);
+    double initial = prep.getPreparationProgress();
+    
+    prep.completeTask("TASK-001");
+    double after = prep.getPreparationProgress();
+    
+    EXPECT_GT(after, initial);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationAddDocument) {
+    CertificationPreparation prep;
+    EXPECT_TRUE(prep.addDocument("DOC-NEW", "New Document"));
+    EXPECT_FALSE(prep.addDocument("", "Empty ID"));
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationRemoveDocument) {
+    CertificationPreparation prep;
+    prep.addDocument("DOC-NEW", "Test");
+    EXPECT_TRUE(prep.removeDocument("DOC-NEW"));
+    EXPECT_FALSE(prep.removeDocument("DOC-NEW"));
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetDocuments) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto required = prep.getRequiredDocuments();
+    EXPECT_GT(required.size(), 0u);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGetDocumentationProgress) {
+    CertificationPreparation prep(StandardType::FIPS);
+    double progress = prep.getDocumentationProgress();
+    EXPECT_GE(progress, 0.0);
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationScheduleAudit) {
+    CertificationPreparation prep(StandardType::FIPS);
+    auto auditDate = std::chrono::system_clock::now() + std::chrono::hours(24*30);
+    EXPECT_TRUE(prep.scheduleAudit(auditDate));
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationIsReadyForAudit) {
+    CertificationPreparation prep(StandardType::FIPS);
+    EXPECT_FALSE(prep.isReadyForAudit()); // Not ready initially
+}
+
+TEST_F(PersonalAppTest, CertificationPreparationGenerateReport) {
+    CertificationPreparation prep(StandardType::FIPS);
+    std::string report = prep.generatePreparationReport();
+    
+    EXPECT_TRUE(report.find("CERTIFICATION PREPARATION") != std::string::npos);
+    EXPECT_TRUE(report.find("FIPS") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, CertificationLevelToString) {
+    EXPECT_EQ(CertificationPreparation::certificationLevelToString(CertificationLevel::NONE), "NONE");
+    EXPECT_EQ(CertificationPreparation::certificationLevelToString(CertificationLevel::BASIC), "BASIC");
+    EXPECT_EQ(CertificationPreparation::certificationLevelToString(CertificationLevel::INTERMEDIATE), "INTERMEDIATE");
+    EXPECT_EQ(CertificationPreparation::certificationLevelToString(CertificationLevel::ADVANCED), "ADVANCED");
+    EXPECT_EQ(CertificationPreparation::certificationLevelToString(CertificationLevel::EXPERT), "EXPERT");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utility Function Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, SecurityStandardsInitialize) {
+    EXPECT_TRUE(Kerem::SecurityStandards::initializeSecurityStandards());
+}
+
+TEST_F(PersonalAppTest, SecurityStandardsRunQuickComplianceCheck) {
+    auto status = Kerem::SecurityStandards::runQuickComplianceCheck(StandardType::FIPS);
+    EXPECT_TRUE(status == ComplianceStatus::NON_COMPLIANT || 
+                status == ComplianceStatus::PARTIALLY_COMPLIANT);
+}
+
+TEST_F(PersonalAppTest, SecurityStandardsGenerateReport) {
+    std::string report = Kerem::SecurityStandards::generateStandardsReport();
+    EXPECT_TRUE(report.find("SECURITY STANDARDS") != std::string::npos);
+}
+
+TEST_F(PersonalAppTest, SecurityStandardsGetSupportedStandards) {
+    auto standards = Kerem::SecurityStandards::getSupportedStandards();
+    EXPECT_EQ(standards.size(), 8u);
+}
+
+TEST_F(PersonalAppTest, SecurityStandardsValidateFIPSCryptoModule) {
+    EXPECT_TRUE(Kerem::SecurityStandards::validateFIPSCryptoModule(FIPSLevel::LEVEL_1));
+    EXPECT_TRUE(Kerem::SecurityStandards::validateFIPSCryptoModule(FIPSLevel::LEVEL_2));
+    EXPECT_FALSE(Kerem::SecurityStandards::validateFIPSCryptoModule(FIPSLevel::LEVEL_3));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Integration Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+TEST_F(PersonalAppTest, SecurityStandardsFullWorkflow) {
+    // Check compliance
+    Compliance compliance(StandardType::FIPS);
+    EXPECT_GT(compliance.getTotalRequirements(), 0u);
+    
+    // Check OWASP
+    OWASPStandards owasp;
+    auto failed = owasp.runAllChecks();
+    EXPECT_GT(failed.size(), 0u);
+    
+    // Prepare for certification
+    CertificationPreparation prep(StandardType::FIPS);
+    auto gaps = prep.identifyGaps();
+    EXPECT_GT(gaps.size(), 0u);
+    
+    // Complete some tasks
+    prep.completeTask("TASK-001");
+    prep.completeTask("TASK-002");
+    
+    // Check progress
+    EXPECT_GT(prep.getPreparationProgress(), 0.0);
+    
+    // Generate reports
+    std::string complianceReport = compliance.generateComplianceReport();
+    std::string prepReport = prep.generatePreparationReport();
+    
+    EXPECT_FALSE(complianceReport.empty());
+    EXPECT_FALSE(prepReport.empty());
 }
 
 // ============================================================================
